@@ -1,7 +1,7 @@
 import { Search, Plus, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScanButton } from '@/components/scanner/ScanButton';
+import { ScanSessionLauncher } from '@/modules/scan-session/components/ScanSessionLauncher';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { Product } from '@/types/stock';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -59,12 +59,11 @@ export function Header({
 
         {/* Actions */}
         <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
-          {/* Barcode Scanner */}
-          <ScanButton 
+          {/* Barcode Scanner - Scan Session */}
+          <ScanSessionLauncher
             products={products}
-            onProductFound={onProductFound}
-            onBarcodeNotFound={onBarcodeNotFound}
             onStockUpdated={onStockUpdated}
+            compact
           />
 
           {/* Notification Center */}
