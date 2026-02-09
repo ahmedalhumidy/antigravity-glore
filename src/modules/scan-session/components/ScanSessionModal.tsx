@@ -79,8 +79,8 @@ export function ScanSessionModal({
     onScan: handleScan,
   });
 
-  const handleCameraScan = useCallback((code: string) => {
-    handleScan(code);
+  const handleCameraScan = useCallback(async (code: string) => {
+    await handleScan(code);
     // Keep camera open for continuous scanning
   }, [handleScan]);
 
@@ -291,6 +291,8 @@ export function ScanSessionModal({
           isOpen={!!quickAddItemId}
           onClose={() => { setQuickAddItemId(null); setQuickAddBarcode(''); }}
           barcode={quickAddBarcode}
+          activeShelfId={session.activeShelfId}
+          activeShelfName={session.activeShelfName}
           onProductCreated={(product) => {
             onProductCreated(quickAddItemId, product);
             setQuickAddItemId(null);

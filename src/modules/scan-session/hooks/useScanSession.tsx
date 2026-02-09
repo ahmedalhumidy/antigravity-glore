@@ -13,6 +13,7 @@ import {
 import { useScanSessionSettings } from './useScanSessionSettings';
 import { stockService, StockMovementInput } from '@/services/stockService';
 import { addToOfflineQueue, isOnline } from '@/lib/offlineSync';
+import { supabase } from '@/integrations/supabase/client';
 
 function createSessionId() {
   return `ss_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -144,7 +145,26 @@ export function useScanSession({ products, onComplete }: UseScanSessionOptions) 
     setSession(prev => prev ? { ...prev, transferStep: step } : null);
   }, []);
 
-  const handleScan = useCallback((barcode: string) => {
+  // Check if a barcode matches a shelf
+  const checkShelfBarcode = useCallback(async (barcode: string): Promise<boolean> => {
+    // Check if barcode matches a shelf name (e.g. QR code with shelf name)
+    const { data: shelf } = await supabase
+      .from('shelves')
+      .select('id, name')
+      .or(`name.eq.${barcode},id.eq.${barcode}`)
+      .maybeSingle();
+
+    if (shelf) {
+      setActiveShelf(shelf.id, shelf.name);
+      playBeep(true);
+      triggerHaptic();
+      toast.success(`Raf seçildi: ${shelf.name}`, { duration: 2000 });
+      return true;
+    }
+    return false;
+  }, [setActiveShelf]);
+
+  const handleScan = useCallback(async (barcode: string) => {
     if (!session) return;
 
     // Cooldown check
@@ -152,6 +172,10 @@ export function useScanSession({ products, onComplete }: UseScanSessionOptions) 
     const lastTime = lastScanTimeRef.current[barcode] || 0;
     if (now - lastTime < settings.cooldownMs) return;
     lastScanTimeRef.current[barcode] = now;
+
+    // Check if this is a shelf barcode first
+    const isShelf = await checkShelfBarcode(barcode);
+    if (isShelf) return;
 
     // Find product
     const product = products.find(
@@ -208,7 +232,7 @@ export function useScanSession({ products, onComplete }: UseScanSessionOptions) 
 
       return { ...prev, queue: [newItem, ...prev.queue], lastScanAt: now };
     });
-  }, [session, products, settings]);
+  }, [session, products, settings, checkShelfBarcode]);
 
   const updateQueueItem = useCallback((itemId: string, updates: Partial<ScanQueueItem>) => {
     setSession(prev => {
@@ -307,6 +331,9 @@ export function useScanSession({ products, onComplete }: UseScanSessionOptions) 
         }
       } else {
         // Standard in/out/count
+        const effectiveShelfId = item.shelfId || session.activeShelfId || undefined;
+        const effectiveShelfName = item.shelfName || session.activeShelfName || undefined;
+
         const input: StockMovementInput = {
           productId: item.productId!,
           type: session.mode === 'count' ? 'giris' : movementType,
@@ -315,11 +342,18 @@ export function useScanSession({ products, onComplete }: UseScanSessionOptions) 
           date: now.toISOString().split('T')[0],
           time: now.toTimeString().slice(0, 5),
           note: `Tarama oturumu [${session.id}]`,
-          shelfId: item.shelfId || session.activeShelfId || undefined,
+          shelfId: effectiveShelfId,
         };
 
         const result = await stockService.createMovement(input);
         if (result) {
+          // Update product's raf_konum to match the shelf
+          if (effectiveShelfName && item.productId) {
+            await supabase
+              .from('products')
+              .update({ raf_konum: effectiveShelfName })
+              .eq('id', item.productId);
+          }
           updateQueueItem(item.id, { status: 'processed' });
           successCount++;
           totalUnits += item.units;
