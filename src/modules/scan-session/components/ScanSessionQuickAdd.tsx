@@ -19,14 +19,21 @@ interface ScanSessionQuickAddProps {
   isOpen: boolean;
   onClose: () => void;
   barcode: string;
+  activeShelfId?: string | null;
+  activeShelfName?: string | null;
   onProductCreated: (product: Product) => void;
 }
 
-export function ScanSessionQuickAdd({ isOpen, onClose, barcode, onProductCreated }: ScanSessionQuickAddProps) {
+export function ScanSessionQuickAdd({ isOpen, onClose, barcode, activeShelfId, activeShelfName, onProductCreated }: ScanSessionQuickAddProps) {
   const [name, setName] = useState('');
   const [code, setCode] = useState(barcode);
   const [category, setCategory] = useState('');
-  const [selectedShelf, setSelectedShelf] = useState<Shelf | null>(null);
+  const [selectedShelf, setSelectedShelf] = useState<Shelf | null>(() => {
+    if (activeShelfId && activeShelfName) {
+      return { id: activeShelfId, name: activeShelfName, created_at: '' };
+    }
+    return null;
+  });
   const [initialUnits, setInitialUnits] = useState(0);
   const [initialSets, setInitialSets] = useState(0);
   const [saving, setSaving] = useState(false);

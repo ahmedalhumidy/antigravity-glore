@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface UseHardwareScannerOptions {
   enabled: boolean;
-  onScan: (barcode: string) => void;
+  onScan: (barcode: string) => void | Promise<void>;
 }
 
 /**
