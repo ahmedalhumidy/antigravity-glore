@@ -9,13 +9,33 @@ export function useProducts() {
 
   const fetchProducts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_deleted', false)
-        .order('created_at', { ascending: false });
+      // Fetch all products (Supabase default limit is 1000, we may have more)
+      let allData: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      
+      while (true) {
+        const { data, error: fetchError } = await supabase
+          .from('products')
+          .select('*')
+          .eq('is_deleted', false)
+          .order('created_at', { ascending: false })
+          .range(from, from + pageSize - 1);
 
-      if (error) throw error;
+        if (fetchError) throw fetchError;
+        if (!data || data.length === 0) break;
+        
+        allData = allData.concat(data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+
+      const data = allData;
+
+      if (data.length === 0) {
+        setProducts([]);
+        return;
+      }
 
       const mappedProducts: Product[] = (data || []).map(p => ({
         id: p.id,
