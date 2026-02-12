@@ -57,21 +57,33 @@ export default function ImportInventory() {
 
       // Check if this is a shelf header (has value in colA, no code in colB)
       if (colA && !colB) {
-        // Normalize shelf name: remove extra spaces
         const normalized = colA.replace(/\s+/g, '').trim();
-        if (/^[A-Z]-\d+\(\d+\)$/.test(normalized) || /^[A-Z]-\d+\s*\(\d+\)$/.test(colA.trim())) {
-          currentShelf = colA.replace(/\s+/g, '').trim();
+        // Match patterns like "D-8(1)", "G-3 (9)", or plain numbers like "1", "109"
+        if (
+          /^[A-Z]-\d+\(\d+\)$/.test(normalized) || 
+          /^[A-Z]-\d+\s*\(\d+\)$/.test(colA.trim()) ||
+          /^[A-Z]-\d+$/.test(normalized) ||
+          /^\d+$/.test(normalized)
+        ) {
+          currentShelf = normalized;
           // Normalize formats like "D-5 (6)" to "D-5(6)"
           currentShelf = currentShelf.replace(/\s*\(\s*/g, '(').replace(/\s*\)\s*/g, ')');
         }
         continue;
       }
 
-      // Check if this is a product row (has numeric code)
-      if (colB && /^\d+$/.test(colB) && colC) {
+      // Check if this is a product row (has numeric code or just a name with quantity)
+      if (colC) {
+        const hasCode = colB && /^\d+$/.test(colB);
         const adet = typeof colE === 'number' ? colE : parseInt(String(colE)) || 0;
         const set = typeof colF === 'number' ? colF : parseInt(String(colF)) || 0;
         
+        // Skip if no quantity at all
+        if (adet === 0 && set === 0) continue;
+
+        // Use code if available, otherwise generate from name
+        const code = hasCode ? colB : `AUTO-${colC.replace(/[^a-zA-Z0-9]/g, '').substring(0, 20)}`;
+
         let barcode: string | null = null;
         if (colG && colG !== 'Barkod Yok' && colG.length > 3) {
           // Clean up scientific notation barcodes
@@ -86,16 +98,14 @@ export default function ImportInventory() {
           }
         }
 
-        if (adet > 0 || set > 0) {
-          items.push({
-            shelf: currentShelf,
-            code: colB,
-            name: colC,
-            barcode,
-            adet,
-            set,
-          });
-        }
+        items.push({
+          shelf: currentShelf,
+          code,
+          name: colC,
+          barcode,
+          adet,
+          set,
+        });
       }
     }
 
