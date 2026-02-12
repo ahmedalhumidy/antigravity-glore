@@ -30,6 +30,7 @@ const CustomerOrdersPage = lazy(() => import("./modules/storefront/components/Cu
 const WishlistPage = lazy(() => import("./modules/storefront/components/WishlistPage"));
 const StoreAdminPage = lazy(() => import("./modules/store-admin/components/StoreAdminPage"));
 const AgentPortalPage = lazy(() => import("./modules/agent-portal/components/AgentPortalPage"));
+const ImportInventory = lazy(() => import("./pages/ImportInventory"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -160,7 +161,8 @@ const AppRoutes = () => (
        {/* Store Admin & Agent */}
        <Route path="/admin/store-center" element={<ProtectedRoute><StoreAdminPage /></ProtectedRoute>} />
        <Route path="/agent" element={<ProtectedRoute><AgentPortalPage /></ProtectedRoute>} />
-      <Route path="/install" element={<Install />} />
+       <Route path="/import-inventory" element={<ProtectedRoute><ImportInventory /></ProtectedRoute>} />
+       <Route path="/install" element={<Install />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   </Suspense>
