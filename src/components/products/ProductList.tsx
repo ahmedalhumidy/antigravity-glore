@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Package, MapPin, AlertTriangle, MoreHorizontal, Edit2, Trash2, ArrowUpDown, Eye } from 'lucide-react';
+import { Package, MapPin, AlertTriangle, MoreHorizontal, Edit2, Trash2, ArrowUpDown, Eye, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Product } from '@/types/stock';
 import { Button } from '@/components/ui/button';
 import {
@@ -97,8 +98,43 @@ export function ProductList({
     </button>
   );
 
+  const handleExportProducts = () => {
+    const exportData = filteredProducts.map(p => ({
+      'Ürün Kodu': p.urunKodu,
+      'Ürün Adı': p.urunAdi,
+      'Barkod': p.barkod || '',
+      'Raf Konum': p.rafKonum,
+      'Açılış Stok': p.acilisStok,
+      'Toplam Giriş': p.toplamGiris,
+      'Toplam Çıkış': p.toplamCikis,
+      'Mevcut Stok': p.mevcutStok,
+      'Set Stok': p.setStok || 0,
+      'Min Stok': p.minStok,
+      'Uyarı': p.uyari ? 'Evet' : 'Hayır',
+      'Son İşlem Tarihi': p.sonIslemTarihi || '',
+      'Not': p.not || '',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    ws['!cols'] = [
+      { wch: 15 }, { wch: 30 }, { wch: 20 }, { wch: 15 },
+      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+      { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 15 }, { wch: 25 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Ürünler');
+    XLSX.writeFile(wb, `urunler-${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   return (
     <div className="animate-slide-up">
+      {/* Export Button */}
+      <div className="flex justify-end mb-3">
+        <Button variant="outline" size="sm" onClick={handleExportProducts}>
+          <Download className="w-4 h-4 mr-2" />
+          Excel İndir
+        </Button>
+      </div>
       {/* Desktop Table */}
       <div className="hidden md:block stat-card overflow-hidden">
         <div className="overflow-x-auto">
