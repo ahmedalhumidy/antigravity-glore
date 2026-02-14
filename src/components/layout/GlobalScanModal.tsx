@@ -169,8 +169,14 @@ export function GlobalScanModal({ products, onProductFound, onBarcodeNotFound, o
                 Kamera
               </Button>
               <Button
-                onClick={handleScan}
-                disabled={!barcode.trim() || scanning}
+                onClick={() => {
+                  if (barcode.trim()) {
+                    handleScan();
+                  } else {
+                    setCameraOpen(true);
+                  }
+                }}
+                disabled={scanning}
                 className="flex-1 h-11"
               >
                 {scanning ? (
