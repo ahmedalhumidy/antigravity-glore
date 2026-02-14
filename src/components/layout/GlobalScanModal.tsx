@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ScanLine, X, Search, Package, MapPin, Loader2 } from 'lucide-react';
+import { ScanLine, X, Search, Package, MapPin, Loader2, Camera } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,7 @@ import { findByBarcode } from '@/lib/globalSearch';
 import { Product } from '@/types/stock';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { BarcodeScanner } from '@/components/scanner/BarcodeScanner';
 
 interface GlobalScanModalProps {
   products: Product[];
@@ -24,6 +25,7 @@ export function GlobalScanModal({ products, onProductFound, onBarcodeNotFound, o
   const [open, setOpen] = useState(false);
   const [barcode, setBarcode] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -69,6 +71,39 @@ export function GlobalScanModal({ products, onProductFound, onBarcodeNotFound, o
       handleScan();
     }
   };
+
+  const handleCameraScan = useCallback((code: string) => {
+    setCameraOpen(false);
+    setBarcode(code);
+    // Auto-search after camera scan
+    setTimeout(async () => {
+      const trimmed = code.trim();
+      if (!trimmed) return;
+      setScanning(true);
+      try {
+        const result = await findByBarcode(trimmed);
+        setOpen(false);
+        setBarcode('');
+        if (result.type === 'product') {
+          const product = products.find(p => p.id === result.id);
+          if (product) {
+            onProductFound(product);
+            toast.success(`Ürün bulundu: ${product.urunAdi}`);
+          }
+        } else if (result.type === 'shelf') {
+          onNavigateToShelf();
+          toast.success(`Raf bulundu: ${result.data?.name}`);
+        } else {
+          onBarcodeNotFound(trimmed);
+          toast.info('Barkod tanınmadı — Yeni ürün oluşturuluyor');
+        }
+      } catch {
+        toast.error('Tarama sırasında hata oluştu');
+      } finally {
+        setScanning(false);
+      }
+    }, 100);
+  }, [products, onProductFound, onBarcodeNotFound, onNavigateToShelf]);
 
   return (
     <>
@@ -124,21 +159,37 @@ export function GlobalScanModal({ products, onProductFound, onBarcodeNotFound, o
               <span>Bilinmeyen barkod → yeni ürün oluşturulur</span>
             </div>
 
-            <Button
-              onClick={handleScan}
-              disabled={!barcode.trim() || scanning}
-              className="w-full h-11"
-            >
-              {scanning ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <ScanLine className="w-4 h-4 mr-2" />
-              )}
-              {scanning ? 'Aranıyor...' : 'Tara'}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setCameraOpen(true)}
+                className="h-11 gap-2"
+              >
+                <Camera className="w-4 h-4" />
+                Kamera
+              </Button>
+              <Button
+                onClick={handleScan}
+                disabled={!barcode.trim() || scanning}
+                className="flex-1 h-11"
+              >
+                {scanning ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <ScanLine className="w-4 h-4 mr-2" />
+                )}
+                {scanning ? 'Aranıyor...' : 'Tara'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      <BarcodeScanner
+        isOpen={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onScan={handleCameraScan}
+      />
     </>
   );
 }
