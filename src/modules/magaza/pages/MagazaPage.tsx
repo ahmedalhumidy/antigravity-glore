@@ -97,27 +97,27 @@ export default function MagazaPage() {
         </div>
       </div>
 
-      {/* ========== SECTION HEADER ========== */}
-      <div className="container mx-auto px-4 mb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 flex-wrap pb-1">
+      {/* ========== CATEGORY BAR ========== */}
+      <div className="sticky top-14 z-30 border-b border-[hsl(215_25%_12%)] bg-[hsl(215_25%_7%/0.92)] backdrop-blur-md">
+        <div className="container mx-auto px-4 py-2.5 flex items-center gap-3">
+          <div className="flex-1 flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
             <button
               onClick={() => setCategory('all')}
-              className={`flex-shrink-0 text-sm font-medium transition-colors ${category === 'all' ? 'text-[hsl(210_20%_95%)]' : 'text-[hsl(215_15%_45%)] hover:text-[hsl(210_20%_75%)]'}`}
+              className={`flex-shrink-0 px-3 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap ${category === 'all' ? 'bg-[hsl(0_0%_100%/0.12)] text-white' : 'text-[hsl(215_15%_50%)] hover:text-[hsl(210_20%_75%)] hover:bg-[hsl(0_0%_100%/0.05)]'}`}
             >
-              Tüm Ürünler
+              Tümü
             </button>
             {categories.map(c => (
               <button
                 key={c}
                 onClick={() => setCategory(c)}
-                className={`flex-shrink-0 text-sm font-medium transition-colors whitespace-nowrap ${category === c ? 'text-[hsl(210_20%_95%)]' : 'text-[hsl(215_15%_45%)] hover:text-[hsl(210_20%_75%)]'}`}
+                className={`flex-shrink-0 px-3 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap ${category === c ? 'bg-[hsl(0_0%_100%/0.12)] text-white' : 'text-[hsl(215_15%_50%)] hover:text-[hsl(210_20%_75%)] hover:bg-[hsl(0_0%_100%/0.05)]'}`}
               >
                 {c}
               </button>
             ))}
           </div>
-          <span className="text-sm text-[hsl(215_15%_40%)] flex-shrink-0 ml-4">{filtered.length} ürün</span>
+          <span className="text-[10px] text-[hsl(215_15%_40%)] flex-shrink-0 tabular-nums">{filtered.length} ürün</span>
         </div>
       </div>
 
