@@ -100,7 +100,7 @@ export default function MagazaPage() {
       {/* ========== SECTION HEADER ========== */}
       <div className="container mx-auto px-4 mb-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide pb-1">
+          <div className="flex items-center gap-3 flex-wrap pb-1">
             <button
               onClick={() => setCategory('all')}
               className={`flex-shrink-0 text-sm font-medium transition-colors ${category === 'all' ? 'text-[hsl(210_20%_95%)]' : 'text-[hsl(215_15%_45%)] hover:text-[hsl(210_20%_75%)]'}`}
