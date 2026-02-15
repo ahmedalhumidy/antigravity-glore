@@ -150,7 +150,7 @@ export default function GaleriPage() {
               {Array.from({ length: 8 }).map((_, i) => (
                 <Skeleton
                   key={i}
-                  className={`rounded-2xl bg-[hsl(215_25%_16%)] ${i % 6 === 0 ? 'row-span-2 aspect-[3/4]' : 'aspect-[4/5]'}`}
+                  className={`rounded-2xl bg-[hsl(215_25%_16%)] ${i % 5 === 0 ? 'row-span-2 aspect-[3/4]' : 'aspect-[4/5]'}`}
                 />
               ))}
             </div>
@@ -169,7 +169,7 @@ export default function GaleriPage() {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-auto">
               {filtered.map((p, i) => (
-                <GalleryProductCard key={p.id} item={p} featured={i % 6 === 0} />
+                <GalleryProductCard key={p.id} item={p} featured={i % 5 === 0} />
               ))}
             </div>
           )}
