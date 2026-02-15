@@ -9,7 +9,7 @@ export function StorefrontLayout() {
   const location = useLocation();
   const { itemCount } = useQuoteCartContext();
   const contentRef = useRef<HTMLDivElement>(null);
-  const [phase, setPhase] = useState<'enter' | 'visible' | 'exit'>('visible');
+  
   const prevPath = useRef(location.pathname);
 
   const isGaleri = location.pathname.startsWith('/galeri');
@@ -20,28 +20,17 @@ export function StorefrontLayout() {
     scrollPositions.set(prevPath.current, window.scrollY);
   }, []);
 
-  // Route change animation
+  // Route change — instant swap, no animation delay
   useEffect(() => {
     if (prevPath.current === location.pathname) return;
-
     saveScroll();
-    setPhase('exit');
+    prevPath.current = location.pathname;
 
-    const exitTimer = setTimeout(() => {
-      prevPath.current = location.pathname;
-      setPhase('enter');
-
-      // Restore scroll for new route
-      const saved = scrollPositions.get(location.pathname);
-      requestAnimationFrame(() => {
-        window.scrollTo(0, saved || 0);
-      });
-
-      const enterTimer = setTimeout(() => setPhase('visible'), 160);
-      return () => clearTimeout(enterTimer);
-    }, 120);
-
-    return () => clearTimeout(exitTimer);
+    // Restore scroll for new route
+    const saved = scrollPositions.get(location.pathname);
+    requestAnimationFrame(() => {
+      window.scrollTo(0, saved || 0);
+    });
   }, [location.pathname, saveScroll]);
 
   // Save scroll on unmount
@@ -132,8 +121,8 @@ export function StorefrontLayout() {
         </div>
       </nav>
 
-      {/* ===== ANIMATED CONTENT ===== */}
-      <div ref={contentRef} style={contentStyles[phase]}>
+      {/* ===== CONTENT ===== */}
+      <div ref={contentRef}>
         <Outlet />
       </div>
     </div>
