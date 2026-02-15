@@ -26,6 +26,9 @@ const QuoteCartPage = lazy(() => import("./modules/magaza/pages/QuoteCartPage"))
 const GaleriPage = lazy(() => import("./modules/magaza/pages/GaleriPage"));
 const GaleriDetailPage = lazy(() => import("./modules/magaza/pages/GaleriDetailPage"));
 
+// Shared storefront layout
+import { StorefrontLayout } from "./modules/magaza/components/StorefrontLayout";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -144,11 +147,13 @@ const AppRoutes = () => (
        <Route path="/admin/magaza/urunler" element={<ProtectedRoute><Index /></ProtectedRoute>} />
        <Route path="/admin/magaza/teklifler" element={<ProtectedRoute><Index /></ProtectedRoute>} />
        <Route path="/admin/galeri" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-       {/* Public Magaza routes */}
-       <Route path="/magaza" element={<QuoteCartProvider><MagazaPage /></QuoteCartProvider>} />
+       {/* Public Magaza routes — shared layout */}
+       <Route element={<QuoteCartProvider><StorefrontLayout /></QuoteCartProvider>}>
+         <Route path="/magaza" element={<MagazaPage />} />
+         <Route path="/galeri" element={<GaleriPage />} />
+       </Route>
        <Route path="/magaza/urun/:slug" element={<QuoteCartProvider><ProductDetailPage /></QuoteCartProvider>} />
        <Route path="/magaza/sepet" element={<QuoteCartProvider><QuoteCartPage /></QuoteCartProvider>} />
-       <Route path="/galeri" element={<QuoteCartProvider><GaleriPage /></QuoteCartProvider>} />
        <Route path="/galeri/urun/:slug" element={<QuoteCartProvider><GaleriDetailPage /></QuoteCartProvider>} />
        <Route path="/import-inventory" element={<ProtectedRoute><ImportInventory /></ProtectedRoute>} />
        <Route path="/install" element={<Install />} />
