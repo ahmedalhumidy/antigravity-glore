@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Edit2, Trash2, Image, Search } from 'lucide-react';
+import { ImageUploader } from '../components/ImageUploader';
 import type { GalleryProduct } from '../types';
 
 export default function AdminGaleriPage() {
@@ -19,21 +20,24 @@ export default function AdminGaleriPage() {
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<GalleryProduct | null>(null);
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [form, setForm] = useState({
-    title: '', slug: '', description: '', images: '',
+    title: '', slug: '', description: '',
     price_hint: '', category: '', tags: '', visible: false, sort_order: 0,
   });
 
   const resetForm = () => {
-    setForm({ title: '', slug: '', description: '', images: '', price_hint: '', category: '', tags: '', visible: false, sort_order: 0 });
+    setForm({ title: '', slug: '', description: '', price_hint: '', category: '', tags: '', visible: false, sort_order: 0 });
+    setUploadedImages([]);
     setEditing(null);
   };
 
   const openEdit = (g: GalleryProduct) => {
     setEditing(g);
+    setUploadedImages(g.images || []);
     setForm({
       title: g.title, slug: g.slug || '', description: g.description || '',
-      images: (g.images || []).join('\n'), price_hint: g.price_hint?.toString() || '',
+      price_hint: g.price_hint?.toString() || '',
       category: g.category || '', tags: (g.tags || []).join(', '),
       visible: g.visible, sort_order: g.sort_order,
     });
@@ -47,7 +51,7 @@ export default function AdminGaleriPage() {
       title: form.title.trim(),
       slug: (form.slug.trim() || form.title.trim()).toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       description: form.description || null,
-      images: form.images.split('\n').map(s => s.trim()).filter(Boolean),
+      images: uploadedImages,
       price_hint: form.price_hint ? parseFloat(form.price_hint) : null,
       category: form.category || null,
       tags: form.tags ? form.tags.split(',').map(s => s.trim()).filter(Boolean) : null,
@@ -154,7 +158,14 @@ export default function AdminGaleriPage() {
             <div><Label>Başlık *</Label><Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></div>
             <div><Label>Slug</Label><Input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} /></div>
             <div><Label>Açıklama</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} /></div>
-            <div><Label>Görseller (her satıra bir URL)</Label><Textarea value={form.images} onChange={e => setForm(f => ({ ...f, images: e.target.value }))} rows={3} /></div>
+            <div>
+              <Label>Görseller</Label>
+              <ImageUploader
+                images={uploadedImages}
+                onChange={setUploadedImages}
+                folder="gallery"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div><Label>Fiyat İpucu</Label><Input type="number" step="0.01" value={form.price_hint} onChange={e => setForm(f => ({ ...f, price_hint: e.target.value }))} /></div>
               <div><Label>Kategori</Label><Input value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} /></div>
