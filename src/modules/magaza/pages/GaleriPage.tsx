@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { GalleryProductCard } from '../components/GalleryProductCard';
 import { GalleryViewer } from '../components/GalleryViewer';
 import { useGalleryProducts } from '../hooks/useGalleryProducts';
@@ -44,30 +43,6 @@ export default function GaleriPage() {
 
       {/* Content */}
       <div className="relative z-10">
-        {/* Top Nav */}
-        <nav className="border-b border-[hsl(0_0%_100%/0.06)] bg-[hsl(215_25%_10%/0.8)] backdrop-blur-md sticky top-0 z-50">
-          <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <Link to="/galeri" className="text-lg font-bold text-white tracking-tight">
-                Galeri
-              </Link>
-              <Link to="/magaza" className="text-sm text-[hsl(210_20%_55%)] hover:text-white transition-colors">
-                Mağaza
-              </Link>
-            </div>
-            <Link
-              to="/magaza/sepet"
-              className="relative text-sm text-[hsl(210_20%_55%)] hover:text-white transition-colors"
-            >
-              Talepler
-              {cartItems.length > 0 && (
-                <span className="absolute -top-1.5 -right-3 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
-                  {cartItems.length}
-                </span>
-              )}
-            </Link>
-          </div>
-        </nav>
 
         {/* Hero Section */}
         <section className="relative py-16 md:py-24 text-center">

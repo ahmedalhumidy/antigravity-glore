@@ -1,12 +1,12 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { MagazaProductCard } from '../components/MagazaProductCard';
 import { QuickViewModal } from '../components/QuickViewModal';
 import { useStoreProducts } from '../hooks/useStoreProducts';
 import { useQuoteCartContext } from '../context/QuoteCartContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Search, Package, ShoppingCart, User, Store, Loader2 } from 'lucide-react';
+import { Search, Package, Loader2, Store } from 'lucide-react';
 import type { StoreProduct } from '../types';
 
 const PAGE_SIZE = 30;
@@ -70,34 +70,6 @@ export default function MagazaPage() {
 
   return (
     <div className="min-h-screen bg-[hsl(215_25%_6%)] text-[hsl(210_20%_92%)]">
-      {/* ========== TOP NAV ========== */}
-      <nav className="border-b border-[hsl(215_25%_14%)] bg-[hsl(215_25%_8%)]">
-        <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <Link to="/magaza" className="flex items-center gap-2">
-              <Store className="w-5 h-5 text-[hsl(142_76%_46%)]" />
-              <span className="text-base font-bold text-[hsl(210_20%_95%)]">Magaza</span>
-            </Link>
-            <div className="hidden md:flex items-center gap-6">
-              <Link to="/" className="text-sm text-[hsl(215_15%_55%)] hover:text-[hsl(210_20%_85%)] transition-colors">Ana Sayfa</Link>
-              <Link to="/galeri" className="text-sm text-[hsl(215_15%_55%)] hover:text-[hsl(210_20%_85%)] transition-colors">Galeri</Link>
-              <Link to="/" className="text-sm text-[hsl(215_15%_55%)] hover:text-[hsl(210_20%_85%)] transition-colors">Depo</Link>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/magaza/sepet')} className="relative p-2 text-[hsl(215_15%_55%)] hover:text-[hsl(210_20%_85%)] transition-colors">
-              <ShoppingCart className="w-5 h-5" />
-              {itemCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[hsl(142_76%_46%)] text-[hsl(215_25%_8%)] text-[10px] font-bold flex items-center justify-center">{itemCount}</span>
-              )}
-            </button>
-            <button className="p-2 text-[hsl(215_15%_55%)] hover:text-[hsl(210_20%_85%)] transition-colors">
-              <User className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </nav>
-
       {/* ========== HEADER ========== */}
       <div className="container mx-auto px-4 py-8">
         <div className="bg-[hsl(215_25%_10%)] rounded-2xl border border-[hsl(215_25%_16%)] p-6">
