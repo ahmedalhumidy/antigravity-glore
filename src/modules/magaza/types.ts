@@ -15,6 +15,7 @@ export interface StoreProduct {
   min_qty: number;
   max_qty: number | null;
   order_step: number;
+  category: string | null;
   sort_order: number;
   created_at: string;
   // Joined from products table

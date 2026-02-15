@@ -15,7 +15,8 @@ export default function MagazaPage() {
   const categories = useMemo(() => {
     const cats = new Set<string>();
     products.forEach(p => {
-      if (p.product?.category) cats.add(p.product.category);
+      const cat = p.category || p.product?.category;
+      if (cat) cats.add(cat);
     });
     return Array.from(cats).sort();
   }, [products]);
@@ -34,7 +35,7 @@ export default function MagazaPage() {
     }
 
     if (category !== 'all') {
-      list = list.filter(p => p.product?.category === category);
+      list = list.filter(p => (p.category || p.product?.category) === category);
     }
 
     if (sort === 'price_asc') list.sort((a, b) => (a.price || 0) - (b.price || 0));
@@ -50,20 +51,37 @@ export default function MagazaPage() {
       <MagazaHeader searchQuery={search} onSearchChange={setSearch} />
 
       <main className="container mx-auto px-4 py-6">
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3 mb-6">
-          <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="w-[160px] h-9">
-              <SelectValue placeholder="Kategori" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tüm Kategoriler</SelectItem>
-              {categories.map(c => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Category Chips */}
+        {categories.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <button
+              onClick={() => setCategory('all')}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                category === 'all'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+              }`}
+            >
+              Tümü
+            </button>
+            {categories.map(c => (
+              <button
+                key={c}
+                onClick={() => setCategory(c)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  category === c
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
 
+        {/* Sort + Count */}
+        <div className="flex flex-wrap items-center gap-3 mb-6">
           <Select value={sort} onValueChange={setSort}>
             <SelectTrigger className="w-[160px] h-9">
               <SelectValue placeholder="Sıralama" />

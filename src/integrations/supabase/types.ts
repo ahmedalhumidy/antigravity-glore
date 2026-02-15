@@ -1383,6 +1383,7 @@ export type Database = {
           allow_cart: boolean | null
           allow_quote: boolean | null
           badge: string | null
+          category: string | null
           compare_price: number | null
           created_at: string | null
           currency: string | null
@@ -1403,6 +1404,7 @@ export type Database = {
           allow_cart?: boolean | null
           allow_quote?: boolean | null
           badge?: string | null
+          category?: string | null
           compare_price?: number | null
           created_at?: string | null
           currency?: string | null
@@ -1423,6 +1425,7 @@ export type Database = {
           allow_cart?: boolean | null
           allow_quote?: boolean | null
           badge?: string | null
+          category?: string | null
           compare_price?: number | null
           created_at?: string | null
           currency?: string | null

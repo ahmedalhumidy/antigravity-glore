@@ -32,6 +32,7 @@ export default function AdminMagazaPage() {
     price: '',
     compare_price: '',
     badge: '',
+    category: '',
     allow_quote: true,
     allow_cart: true,
     show_stock: false,
@@ -41,13 +42,16 @@ export default function AdminMagazaPage() {
     sort_order: 0,
   });
 
+  // Derive existing categories for autocomplete
+  const existingCategories = Array.from(new Set(storeProducts.map(sp => sp.category).filter(Boolean) as string[])).sort();
+
   const publishedIds = new Set(storeProducts.map(sp => sp.product_id));
   const unpublishedProducts = warehouseProducts.filter(wp => !publishedIds.has(wp.id));
 
   const resetForm = () => {
     setForm({
       product_id: '', slug: '', visible: false, title_override: '', description_override: '',
-      price: '', compare_price: '', badge: '', allow_quote: true, allow_cart: true,
+      price: '', compare_price: '', badge: '', category: '', allow_quote: true, allow_cart: true,
       show_stock: false, min_qty: 1, max_qty: '', order_step: 1, sort_order: 0,
     });
     setEditing(null);
@@ -64,6 +68,7 @@ export default function AdminMagazaPage() {
       price: sp.price?.toString() || '',
       compare_price: sp.compare_price?.toString() || '',
       badge: sp.badge || '',
+      category: sp.category || '',
       allow_quote: sp.allow_quote,
       allow_cart: sp.allow_cart,
       show_stock: sp.show_stock,
@@ -95,6 +100,7 @@ export default function AdminMagazaPage() {
       price: form.price ? parseFloat(form.price) : null,
       compare_price: form.compare_price ? parseFloat(form.compare_price) : null,
       badge: form.badge || null,
+      category: form.category || null,
       allow_quote: form.allow_quote,
       allow_cart: form.allow_cart,
       show_stock: form.show_stock,
@@ -268,6 +274,19 @@ export default function AdminMagazaPage() {
                   {badges.map(b => <SelectItem key={b || 'none'} value={b || 'none'}>{b || 'Yok'}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div>
+              <Label>Kategori</Label>
+              <Input
+                value={form.category}
+                onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                placeholder="Kategori adı girin"
+                list="category-suggestions"
+              />
+              <datalist id="category-suggestions">
+                {existingCategories.map(c => <option key={c} value={c} />)}
+              </datalist>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
