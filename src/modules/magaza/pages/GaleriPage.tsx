@@ -1,12 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { GalleryProductCard } from '../components/GalleryProductCard';
 import { GalleryViewer } from '../components/GalleryViewer';
 import { useGalleryProducts } from '../hooks/useGalleryProducts';
 import { useQuoteCartContext } from '../context/QuoteCartContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Search, Image, Sparkles, Eye, Send } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-const NOISE_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`;
+const PAGE_SIZE = 24;
 
 export default function GaleriPage() {
   const { products, isLoading } = useGalleryProducts();
@@ -14,6 +15,7 @@ export default function GaleriPage() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const categories = useMemo(() => {
     const cats = new Set<string>();
@@ -35,11 +37,15 @@ export default function GaleriPage() {
     return list;
   }, [products, search, category]);
 
+  const visible = filtered.slice(0, visibleCount);
+  const hasMore = visibleCount < filtered.length;
+
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [search, category]);
+
   return (
     <div className="min-h-screen relative">
       {/* Full-page dark gradient background */}
       <div className="fixed inset-0 bg-gradient-to-br from-[hsl(215_30%_8%)] via-[hsl(215_25%_11%)] to-[hsl(220_20%_14%)]" />
-      <div className="fixed inset-0 opacity-[0.025]" style={{ backgroundImage: NOISE_BG }} />
 
       {/* Content */}
       <div className="relative z-10">
@@ -144,11 +150,25 @@ export default function GaleriPage() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-auto">
-              {filtered.map((p, i) => (
-                <GalleryProductCard key={p.id} item={p} featured={i % 5 === 0} onOpen={() => setViewerIndex(i)} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-auto">
+                {visible.map((p, i) => (
+                  <GalleryProductCard key={p.id} item={p} featured={i % 7 === 0} onOpen={() => setViewerIndex(i)} />
+                ))}
+              </div>
+
+              {hasMore && (
+                <div className="flex justify-center mt-8">
+                  <Button
+                    variant="outline"
+                    onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
+                    className="px-8 h-10 border-[hsl(215_25%_22%)] text-[hsl(210_20%_75%)] hover:bg-[hsl(215_25%_18%)]"
+                  >
+                    Daha Fazla Yükle ({filtered.length - visibleCount} kalan)
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </main>
       </div>
