@@ -5,7 +5,8 @@ import { useGalleryProducts } from '../hooks/useGalleryProducts';
 import { useQuoteCartContext } from '../context/QuoteCartContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Search, Image, Sparkles, Eye, Send } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+
+const NOISE_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`;
 
 export default function GaleriPage() {
   const { products, isLoading } = useGalleryProducts();
@@ -34,22 +35,27 @@ export default function GaleriPage() {
   }, [products, search, category]);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Top Nav */}
-      <nav className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link to="/galeri" className="text-lg font-bold text-foreground tracking-tight">
-              Galeri
-            </Link>
-            <Link to="/magaza" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Mağaza
-            </Link>
-          </div>
-          <div className="flex items-center gap-3">
+    <div className="min-h-screen relative">
+      {/* Full-page dark gradient background */}
+      <div className="fixed inset-0 bg-gradient-to-br from-[hsl(215_30%_8%)] via-[hsl(215_25%_11%)] to-[hsl(220_20%_14%)]" />
+      <div className="fixed inset-0 opacity-[0.025]" style={{ backgroundImage: NOISE_BG }} />
+
+      {/* Content */}
+      <div className="relative z-10">
+        {/* Top Nav */}
+        <nav className="border-b border-[hsl(0_0%_100%/0.06)] bg-[hsl(215_25%_10%/0.8)] backdrop-blur-md sticky top-0 z-50">
+          <div className="container mx-auto px-4 h-14 flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <Link to="/galeri" className="text-lg font-bold text-white tracking-tight">
+                Galeri
+              </Link>
+              <Link to="/magaza" className="text-sm text-[hsl(210_20%_55%)] hover:text-white transition-colors">
+                Mağaza
+              </Link>
+            </div>
             <Link
               to="/magaza/sepet"
-              className="relative text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="relative text-sm text-[hsl(210_20%_55%)] hover:text-white transition-colors"
             >
               Talepler
               {cartItems.length > 0 && (
@@ -59,127 +65,116 @@ export default function GaleriPage() {
               )}
             </Link>
           </div>
-        </div>
-      </nav>
+        </nav>
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[hsl(215_30%_10%)] via-[hsl(215_25%_14%)] to-[hsl(220_20%_18%)]" />
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`
-        }} />
-        <div className="relative container mx-auto px-4 py-16 md:py-24 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[hsl(0_0%_100%/0.08)] border border-[hsl(0_0%_100%/0.1)] mb-6">
-            <Sparkles className="w-3.5 h-3.5 text-[hsl(38_92%_50%)]" />
-            <span className="text-xs text-[hsl(210_20%_80%)] font-medium tracking-wide">PREMIUM KOLEKSİYON</span>
-          </div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white tracking-tight mb-4">
-            Ürün Galerisi
-          </h1>
-          <p className="text-[hsl(210_20%_65%)] text-lg md:text-xl font-light tracking-wide">
-            İlham Al • Keşfet • Talep Gönder
-          </p>
-
-          {/* Search */}
-          <div className="mt-10 max-w-lg mx-auto relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[hsl(215_15%_40%)]" />
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Ürün ara..."
-              className="w-full h-12 pl-12 pr-4 rounded-full bg-[hsl(0_0%_100%/0.07)] border border-[hsl(0_0%_100%/0.1)] text-white placeholder:text-[hsl(215_15%_40%)] focus:outline-none focus:border-[hsl(0_0%_100%/0.25)] focus:bg-[hsl(0_0%_100%/0.1)] transition-all text-sm"
-            />
-          </div>
-
-          {/* Trust chips */}
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <div className="flex items-center gap-1.5 text-[hsl(210_20%_60%)] text-xs">
-              <Eye className="w-3.5 h-3.5" />
-              <span>Görsel Katalog</span>
+        {/* Hero Section */}
+        <section className="relative py-16 md:py-24 text-center">
+          <div className="container mx-auto px-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[hsl(0_0%_100%/0.06)] border border-[hsl(0_0%_100%/0.08)] mb-6">
+              <Sparkles className="w-3.5 h-3.5 text-[hsl(38_92%_50%)]" />
+              <span className="text-xs text-[hsl(210_20%_70%)] font-medium tracking-widest uppercase">Premium Koleksiyon</span>
             </div>
-            <span className="text-[hsl(215_15%_25%)]">•</span>
-            <div className="flex items-center gap-1.5 text-[hsl(210_20%_60%)] text-xs">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>İlham Koleksiyonu</span>
-            </div>
-            <span className="text-[hsl(215_15%_25%)]">•</span>
-            <div className="flex items-center gap-1.5 text-[hsl(210_20%_60%)] text-xs">
-              <Send className="w-3.5 h-3.5" />
-              <span>Kolay Talep</span>
-            </div>
-          </div>
-        </div>
-      </section>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white tracking-tight mb-4">
+              Ürün Galerisi
+            </h1>
+            <p className="text-[hsl(210_20%_50%)] text-lg md:text-xl font-light tracking-wide">
+              İlham Al • Keşfet • Talep Gönder
+            </p>
 
-      {/* Category + Controls */}
-      <div className="sticky top-14 z-40 border-b border-border bg-background/95 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center gap-4">
-            <div className="flex-1 flex items-center gap-2 overflow-x-auto scrollbar-hide">
-              <button
-                onClick={() => setCategory('all')}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
-                  category === 'all'
-                    ? 'bg-foreground text-background'
-                    : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                }`}
-              >
-                Tümü
-              </button>
-              {categories.map(c => (
-                <button
-                  key={c}
-                  onClick={() => setCategory(c)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
-                    category === c
-                      ? 'bg-foreground text-background'
-                      : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  }`}
-                >
-                  {c}
-                </button>
+            {/* Search */}
+            <div className="mt-10 max-w-lg mx-auto relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[hsl(215_15%_35%)]" />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Ürün ara..."
+                className="w-full h-12 pl-12 pr-4 rounded-full bg-[hsl(0_0%_100%/0.06)] border border-[hsl(0_0%_100%/0.08)] text-white placeholder:text-[hsl(215_15%_35%)] focus:outline-none focus:border-[hsl(0_0%_100%/0.2)] focus:bg-[hsl(0_0%_100%/0.08)] transition-all text-sm"
+              />
+            </div>
+
+            {/* Trust chips */}
+            <div className="mt-8 flex flex-wrap justify-center gap-4">
+              {[
+                { icon: Eye, label: 'Görsel Katalog' },
+                { icon: Sparkles, label: 'İlham Koleksiyonu' },
+                { icon: Send, label: 'Kolay Talep' },
+              ].map(({ icon: Icon, label }) => (
+                <div key={label} className="flex items-center gap-1.5 text-[hsl(210_20%_45%)] text-xs">
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{label}</span>
+                </div>
               ))}
             </div>
-            <span className="text-xs text-muted-foreground whitespace-nowrap">{filtered.length} ürün</span>
+          </div>
+        </section>
+
+        {/* Sticky Category Bar */}
+        <div className="sticky top-14 z-40 border-y border-[hsl(0_0%_100%/0.06)] bg-[hsl(215_25%_10%/0.85)] backdrop-blur-md">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center gap-4">
+              <div className="flex-1 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+                <button
+                  onClick={() => setCategory('all')}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
+                    category === 'all'
+                      ? 'bg-white text-[hsl(215_25%_10%)]'
+                      : 'bg-[hsl(0_0%_100%/0.07)] text-[hsl(210_20%_55%)] hover:bg-[hsl(0_0%_100%/0.12)] hover:text-white'
+                  }`}
+                >
+                  Tümü
+                </button>
+                {categories.map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setCategory(c)}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
+                      category === c
+                        ? 'bg-white text-[hsl(215_25%_10%)]'
+                        : 'bg-[hsl(0_0%_100%/0.07)] text-[hsl(210_20%_55%)] hover:bg-[hsl(0_0%_100%/0.12)] hover:text-white'
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+              <span className="text-xs text-[hsl(210_20%_40%)] whitespace-nowrap">{filtered.length} ürün</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <main className="container mx-auto px-4 py-8">
-        {isLoading ? (
-          <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton
-                key={i}
-                className="rounded-2xl break-inside-avoid"
-                style={{ height: `${280 + (i % 3) * 80}px` }}
-              />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-24">
-            <Image className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2 text-foreground">Sonuç bulunamadı</h2>
-            <p className="text-muted-foreground mb-6">Aradığınız kriterlere uygun ürün bulunamadı.</p>
-            <button
-              onClick={() => { setSearch(''); setCategory('all'); }}
-              className="px-5 py-2 rounded-full bg-muted text-foreground text-sm font-medium hover:bg-accent transition-colors"
-            >
-              Filtreleri Sıfırla
-            </button>
-          </div>
-        ) : (
-          <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
-            {filtered.map(p => (
-              <div key={p.id} className="break-inside-avoid">
-                <GalleryProductCard item={p} />
-              </div>
-            ))}
-          </div>
-        )}
-      </main>
+        {/* Content Grid */}
+        <main className="container mx-auto px-4 py-10">
+          {isLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton
+                  key={i}
+                  className={`rounded-2xl bg-[hsl(215_25%_16%)] ${i % 6 === 0 ? 'row-span-2 aspect-[3/4]' : 'aspect-[4/5]'}`}
+                />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-24">
+              <Image className="w-16 h-16 text-[hsl(215_15%_25%)] mx-auto mb-4" />
+              <h2 className="text-xl font-semibold mb-2 text-white">Sonuç bulunamadı</h2>
+              <p className="text-[hsl(210_20%_45%)] mb-6">Aradığınız kriterlere uygun ürün bulunamadı.</p>
+              <button
+                onClick={() => { setSearch(''); setCategory('all'); }}
+                className="px-5 py-2 rounded-full bg-[hsl(0_0%_100%/0.08)] text-white text-sm font-medium hover:bg-[hsl(0_0%_100%/0.14)] transition-colors"
+              >
+                Filtreleri Sıfırla
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-auto">
+              {filtered.map((p, i) => (
+                <GalleryProductCard key={p.id} item={p} featured={i % 6 === 0} />
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
