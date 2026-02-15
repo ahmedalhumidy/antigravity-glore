@@ -96,7 +96,7 @@ export default function GaleriPage() {
         <div className="sticky top-14 z-40 border-y border-[hsl(0_0%_100%/0.06)] bg-[hsl(215_25%_10%/0.85)] backdrop-blur-md">
           <div className="container mx-auto px-4 py-3">
             <div className="flex items-center gap-4">
-              <div className="flex-1 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+              <div className="flex-1 flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => setCategory('all')}
                   className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
