@@ -24,6 +24,7 @@ const MagazaPage = lazy(() => import("./modules/magaza/pages/MagazaPage"));
 const ProductDetailPage = lazy(() => import("./modules/magaza/pages/ProductDetailPage"));
 const QuoteCartPage = lazy(() => import("./modules/magaza/pages/QuoteCartPage"));
 const GaleriPage = lazy(() => import("./modules/magaza/pages/GaleriPage"));
+const GaleriDetailPage = lazy(() => import("./modules/magaza/pages/GaleriDetailPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -148,6 +149,7 @@ const AppRoutes = () => (
        <Route path="/magaza/urun/:slug" element={<QuoteCartProvider><ProductDetailPage /></QuoteCartProvider>} />
        <Route path="/magaza/sepet" element={<QuoteCartProvider><QuoteCartPage /></QuoteCartProvider>} />
        <Route path="/galeri" element={<QuoteCartProvider><GaleriPage /></QuoteCartProvider>} />
+       <Route path="/galeri/urun/:slug" element={<QuoteCartProvider><GaleriDetailPage /></QuoteCartProvider>} />
        <Route path="/import-inventory" element={<ProtectedRoute><ImportInventory /></ProtectedRoute>} />
        <Route path="/install" element={<Install />} />
       <Route path="*" element={<NotFound />} />
