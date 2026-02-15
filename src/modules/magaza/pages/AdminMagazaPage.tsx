@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Edit2, Trash2, Store, Search } from 'lucide-react';
+import { ImageUploader } from '../components/ImageUploader';
 import type { StoreProduct } from '../types';
 
 const badges = ['', 'Yeni', 'İndirim', 'Özel', 'Tükendi'];
@@ -22,6 +23,7 @@ export default function AdminMagazaPage() {
   const { products: warehouseProducts } = useProducts();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<StoreProduct | null>(null);
+  const [productImages, setProductImages] = useState<string[]>([]);
   const [searchQ, setSearchQ] = useState('');
   const [form, setForm] = useState({
     product_id: '',
@@ -55,10 +57,14 @@ export default function AdminMagazaPage() {
       show_stock: false, min_qty: 1, max_qty: '', order_step: 1, sort_order: 0,
     });
     setEditing(null);
+    setProductImages([]);
   };
 
   const openEdit = (sp: StoreProduct) => {
     setEditing(sp);
+    // Load existing images from the warehouse product
+    const existingImages = (sp.product?.images as string[] | null) || [];
+    setProductImages(existingImages);
     setForm({
       product_id: sp.product_id,
       slug: sp.slug,
@@ -111,6 +117,11 @@ export default function AdminMagazaPage() {
     };
 
     try {
+      // Save images to the warehouse product
+      if (form.product_id && productImages.length > 0) {
+        await supabase.from('products').update({ images: productImages }).eq('id', form.product_id);
+      }
+
       if (editing) {
         const { error } = await supabase.from('store_products').update(payload).eq('id', editing.id);
         if (error) throw error;
@@ -259,6 +270,15 @@ export default function AdminMagazaPage() {
                 <Label>Karşılaştırma Fiyatı</Label>
                 <Input type="number" step="0.01" value={form.compare_price} onChange={e => setForm(f => ({ ...f, compare_price: e.target.value }))} />
               </div>
+            </div>
+
+            <div>
+              <Label>Ürün Görselleri</Label>
+              <ImageUploader
+                images={productImages}
+                onChange={setProductImages}
+                folder="store"
+              />
             </div>
 
             <div>
