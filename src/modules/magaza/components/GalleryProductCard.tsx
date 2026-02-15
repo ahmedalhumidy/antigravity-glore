@@ -1,5 +1,4 @@
 import { useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import { Eye, Send, Image as ImageIcon } from 'lucide-react';
 import { useQuoteCartContext } from '../context/QuoteCartContext';
 import type { GalleryProduct } from '../types';
@@ -7,12 +6,13 @@ import type { GalleryProduct } from '../types';
 interface Props {
   item: GalleryProduct;
   featured?: boolean;
+  onOpen?: () => void;
 }
 
-export function GalleryProductCard({ item, featured }: Props) {
+export function GalleryProductCard({ item, featured, onOpen }: Props) {
   const { addItem } = useQuoteCartContext();
   const [imgLoaded, setImgLoaded] = useState(false);
-  const cardRef = useRef<HTMLAnchorElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const [shine, setShine] = useState({ x: 50, y: 50 });
   const images = item.images || [];
   const mainImage = images[0] || '';
@@ -41,11 +41,11 @@ export function GalleryProductCard({ item, featured }: Props) {
   };
 
   return (
-    <Link
+    <div
       ref={cardRef}
-      to={`/galeri/urun/${item.slug || item.id}`}
+      onClick={onOpen}
       onMouseMove={handleMouseMove}
-      className={`group/card block rounded-2xl overflow-hidden relative transition-all duration-300 hover:shadow-[0_20px_60px_-12px_hsl(0_0%_0%/0.6)] ${
+      className={`group/card block rounded-2xl overflow-hidden relative transition-all duration-300 hover:shadow-[0_20px_60px_-12px_hsl(0_0%_0%/0.6)] cursor-pointer ${
         featured ? 'row-span-2' : ''
       }`}
     >
@@ -126,6 +126,6 @@ export function GalleryProductCard({ item, featured }: Props) {
           </button>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

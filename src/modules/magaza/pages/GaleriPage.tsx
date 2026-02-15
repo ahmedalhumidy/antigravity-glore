@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { GalleryProductCard } from '../components/GalleryProductCard';
+import { GalleryViewer } from '../components/GalleryViewer';
 import { useGalleryProducts } from '../hooks/useGalleryProducts';
 import { useQuoteCartContext } from '../context/QuoteCartContext';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,6 +14,7 @@ export default function GaleriPage() {
   const { items: cartItems } = useQuoteCartContext();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   const categories = useMemo(() => {
     const cats = new Set<string>();
@@ -169,12 +171,20 @@ export default function GaleriPage() {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-auto">
               {filtered.map((p, i) => (
-                <GalleryProductCard key={p.id} item={p} featured={i % 5 === 0} />
+                <GalleryProductCard key={p.id} item={p} featured={i % 5 === 0} onOpen={() => setViewerIndex(i)} />
               ))}
             </div>
           )}
         </main>
       </div>
+
+      {viewerIndex !== null && (
+        <GalleryViewer
+          products={filtered}
+          initialIndex={viewerIndex}
+          onClose={() => setViewerIndex(null)}
+        />
+      )}
     </div>
   );
 }
