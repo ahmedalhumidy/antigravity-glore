@@ -139,7 +139,7 @@ export function GalleryViewer({ products, initialIndex, onClose }: Props) {
         }`}
       >
         {/* Image */}
-        <div className="flex-1 max-h-[70vh] md:max-h-[80vh] aspect-[3/4] relative rounded-2xl overflow-hidden shadow-2xl">
+        <div className="flex-1 max-h-[70vh] md:max-h-[80vh] aspect-[3/4] relative rounded-2xl overflow-hidden shadow-2xl bg-[hsl(215_25%_12%)] border border-[hsl(0_0%_100%/0.06)]">
           {hasImage ? (
             <img
               src={mainImage}
@@ -147,14 +147,19 @@ export function GalleryViewer({ products, initialIndex, onClose }: Props) {
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[hsl(215_25%_16%)] to-[hsl(215_25%_22%)]">
-              <ImageIcon className="w-16 h-16 text-[hsl(215_15%_30%)]" />
+            <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-[hsl(215_25%_14%)] to-[hsl(215_25%_20%)]">
+              <div className="w-24 h-24 rounded-2xl bg-[hsl(0_0%_100%/0.05)] flex items-center justify-center">
+                <ImageIcon className="w-12 h-12 text-[hsl(215_15%_35%)]" />
+              </div>
+              <span className="text-sm text-[hsl(215_15%_40%)]">Görsel henüz eklenmedi</span>
             </div>
           )}
           {/* Vignette */}
-          <div className="absolute inset-0 pointer-events-none" style={{
-            background: 'radial-gradient(ellipse at center, transparent 60%, hsl(0 0% 0% / 0.3) 100%)',
-          }} />
+          {hasImage && (
+            <div className="absolute inset-0 pointer-events-none" style={{
+              background: 'radial-gradient(ellipse at center, transparent 60%, hsl(0 0% 0% / 0.3) 100%)',
+            }} />
+          )}
         </div>
 
         {/* Info panel */}
