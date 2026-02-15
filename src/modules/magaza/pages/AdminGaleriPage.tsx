@@ -11,11 +11,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit2, Trash2, Image } from 'lucide-react';
+import { Plus, Edit2, Trash2, Image, Search } from 'lucide-react';
 import type { GalleryProduct } from '../types';
 
 export default function AdminGaleriPage() {
   const { products, isLoading, refetch } = useAllGalleryProducts();
+  const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<GalleryProduct | null>(null);
   const [form, setForm] = useState({
@@ -88,6 +89,17 @@ export default function AdminGaleriPage() {
         <Button onClick={() => { resetForm(); setDialogOpen(true); }}><Plus className="w-4 h-4 mr-2" />Ekle</Button>
       </div>
 
+      {/* Search Bar */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          placeholder="Ürün ara... (başlık, kategori, etiket)"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -101,7 +113,15 @@ export default function AdminGaleriPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {products.map(g => (
+              {(search.trim()
+                ? products.filter(g => {
+                    const q = search.toLowerCase();
+                    return g.title.toLowerCase().includes(q) ||
+                      (g.category || '').toLowerCase().includes(q) ||
+                      (g.tags || []).some(t => t.toLowerCase().includes(q));
+                  })
+                : products
+              ).map(g => (
                 <TableRow key={g.id}>
                   <TableCell className="font-medium">{g.title}</TableCell>
                   <TableCell>{g.category || '—'}</TableCell>
