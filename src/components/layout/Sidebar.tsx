@@ -10,7 +10,10 @@ import {
   BarChart3,
   Settings,
   Archive,
-  Settings2
+  Settings2,
+  Store,
+  Image,
+  FileText
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { ViewMode } from '@/types/stock';
@@ -44,6 +47,9 @@ const menuItems: MenuItem[] = [
   { id: 'logs', path: '/logs', icon: ScrollText, label: 'Denetim Günlüğü', requiredPermission: 'logs.view' },
   { id: 'settings', path: '/settings', icon: Settings, label: 'Sistem Ayarları', requiredPermission: 'settings.view' },
   { id: 'control-center', path: '/control-center', icon: Settings2, label: 'Kontrol Merkezi', requiredPermission: 'settings.view' },
+  { id: 'admin-magaza', path: '/admin/magaza', icon: Store, label: 'Mağaza Yönetimi', requiredPermission: 'settings.view' },
+  { id: 'admin-magaza-teklifler', path: '/admin/magaza/teklifler', icon: FileText, label: 'Teklif Talepleri', requiredPermission: 'settings.view' },
+  { id: 'admin-galeri', path: '/admin/galeri', icon: Image, label: 'Galeri Yönetimi', requiredPermission: 'settings.view' },
   { id: 'profile', path: '/profile', icon: UserCog, label: 'Profil Ayarları' },
 ];
 
