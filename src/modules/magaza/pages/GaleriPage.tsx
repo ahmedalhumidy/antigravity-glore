@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { MagazaHeader } from '../components/MagazaHeader';
 import { GalleryProductCard } from '../components/GalleryProductCard';
 import { useGalleryProducts } from '../hooks/useGalleryProducts';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import { Skeleton } from '@/components/ui/skeleton';
 import { Image } from 'lucide-react';
 
@@ -32,20 +32,39 @@ export default function GaleriPage() {
       <MagazaHeader searchQuery={search} onSearchChange={setSearch} />
 
       <main className="container mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Galeri</h1>
-          <div className="flex gap-3">
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="w-[160px] h-9">
-                <SelectValue placeholder="Kategori" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tümü</SelectItem>
-                {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <span className="text-sm text-muted-foreground self-center">{filtered.length} ürün</span>
+        <h1 className="text-2xl font-bold mb-4">Galeri</h1>
+
+        {/* Category Chips */}
+        {categories.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <button
+              onClick={() => setCategory('all')}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                category === 'all'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+              }`}
+            >
+              Tümü
+            </button>
+            {categories.map(c => (
+              <button
+                key={c}
+                onClick={() => setCategory(c)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  category === c
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                }`}
+              >
+                {c}
+              </button>
+            ))}
           </div>
+        )}
+
+        <div className="flex items-center mb-6">
+          <span className="text-sm text-muted-foreground ml-auto">{filtered.length} ürün</span>
         </div>
 
         {isLoading ? (
