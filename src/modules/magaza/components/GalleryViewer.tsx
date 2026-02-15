@@ -133,6 +133,7 @@ export function GalleryViewer({ products, initialIndex, onClose }: Props) {
 
       {/* Content */}
       <div
+        onClick={e => e.stopPropagation()}
         className={`relative z-40 flex flex-col md:flex-row items-center gap-6 md:gap-10 max-w-5xl w-full mx-4 transition-all duration-250 ease-out ${
           visible ? 'scale-100 translate-y-0' : 'scale-90 translate-y-8'
         }`}
