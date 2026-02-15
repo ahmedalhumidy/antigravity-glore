@@ -93,36 +93,34 @@ export default function GaleriPage() {
         </section>
 
         {/* Sticky Category Bar */}
-        <div className="sticky top-14 z-40 border-y border-[hsl(0_0%_100%/0.06)] bg-[hsl(215_25%_10%/0.85)] backdrop-blur-md">
-          <div className="container mx-auto px-4 py-3">
-            <div className="flex items-center gap-4">
-              <div className="flex-1 flex items-center gap-2 flex-wrap">
+        <div className="sticky top-14 z-40 border-b border-[hsl(0_0%_100%/0.06)] bg-[hsl(215_25%_10%/0.88)] backdrop-blur-md">
+          <div className="container mx-auto px-4 py-2.5 flex items-center gap-3">
+            <div className="flex-1 flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+              <button
+                onClick={() => setCategory('all')}
+                className={`flex-shrink-0 px-3 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap ${
+                  category === 'all'
+                    ? 'bg-[hsl(0_0%_100%/0.12)] text-white'
+                    : 'text-[hsl(215_15%_50%)] hover:text-[hsl(210_20%_75%)] hover:bg-[hsl(0_0%_100%/0.05)]'
+                }`}
+              >
+                Tümü
+              </button>
+              {categories.map(c => (
                 <button
-                  onClick={() => setCategory('all')}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
-                    category === 'all'
-                      ? 'bg-white text-[hsl(215_25%_10%)]'
-                      : 'bg-[hsl(0_0%_100%/0.07)] text-[hsl(210_20%_55%)] hover:bg-[hsl(0_0%_100%/0.12)] hover:text-white'
+                  key={c}
+                  onClick={() => setCategory(c)}
+                  className={`flex-shrink-0 px-3 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap ${
+                    category === c
+                      ? 'bg-[hsl(0_0%_100%/0.12)] text-white'
+                      : 'text-[hsl(215_15%_50%)] hover:text-[hsl(210_20%_75%)] hover:bg-[hsl(0_0%_100%/0.05)]'
                   }`}
                 >
-                  Tümü
+                  {c}
                 </button>
-                {categories.map(c => (
-                  <button
-                    key={c}
-                    onClick={() => setCategory(c)}
-                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
-                      category === c
-                        ? 'bg-white text-[hsl(215_25%_10%)]'
-                        : 'bg-[hsl(0_0%_100%/0.07)] text-[hsl(210_20%_55%)] hover:bg-[hsl(0_0%_100%/0.12)] hover:text-white'
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-              <span className="text-xs text-[hsl(210_20%_40%)] whitespace-nowrap">{filtered.length} ürün</span>
+              ))}
             </div>
+            <span className="text-[10px] text-[hsl(210_20%_40%)] flex-shrink-0 tabular-nums">{filtered.length} ürün</span>
           </div>
         </div>
 
