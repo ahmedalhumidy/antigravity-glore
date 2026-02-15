@@ -153,7 +153,7 @@ export default function GaleriPage() {
             <>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-auto">
                 {visible.map((p, i) => (
-                  <GalleryProductCard key={p.id} item={p} featured={i % 7 === 0} onOpen={() => setViewerIndex(i)} />
+                  <GalleryProductCard key={p.id} item={p} onOpen={() => setViewerIndex(i)} />
                 ))}
               </div>
 
