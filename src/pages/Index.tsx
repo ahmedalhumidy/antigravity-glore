@@ -36,6 +36,9 @@ const ArchiveManagement = lazy(() =>
 const ControlCenterPage = lazy(() =>
   import("@/modules/control-center/ControlCenterPage").then((m) => ({ default: m.ControlCenterPage })),
 );
+const AdminMagazaPage = lazy(() => import("@/modules/magaza/pages/AdminMagazaPage"));
+const AdminGaleriPage = lazy(() => import("@/modules/magaza/pages/AdminGaleriPage"));
+const AdminQuotesPage = lazy(() => import("@/modules/magaza/pages/AdminQuotesPage"));
 
 // Loading component for lazy loaded pages
 function LazyPageLoader() {
@@ -177,6 +180,10 @@ const Index = () => {
     settings: "Sistem Ayarları",
     archive: "Arşiv Yönetimi",
     'control-center': "Kontrol Merkezi",
+    'admin-magaza': "Mağaza Yönetimi",
+    'admin-magaza-urunler': "Mağaza Ürünleri",
+    'admin-magaza-teklifler': "Teklif Talepleri",
+    'admin-galeri': "Galeri Yönetimi",
   };
 
   const isLoading = productsLoading || movementsLoading;
@@ -348,6 +355,24 @@ const Index = () => {
           {currentView === "control-center" && (
             <Suspense fallback={<LazyPageLoader />}>
               <ControlCenterPage />
+            </Suspense>
+          )}
+
+          {(currentView === "admin-magaza" || currentView === "admin-magaza-urunler") && (
+            <Suspense fallback={<LazyPageLoader />}>
+              <AdminMagazaPage />
+            </Suspense>
+          )}
+
+          {currentView === "admin-magaza-teklifler" && (
+            <Suspense fallback={<LazyPageLoader />}>
+              <AdminQuotesPage />
+            </Suspense>
+          )}
+
+          {currentView === "admin-galeri" && (
+            <Suspense fallback={<LazyPageLoader />}>
+              <AdminGaleriPage />
             </Suspense>
           )}
         </main>

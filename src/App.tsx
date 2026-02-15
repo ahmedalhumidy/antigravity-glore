@@ -10,6 +10,7 @@ import { FeatureFlagsProvider } from "@/hooks/useFeatureFlags";
 import { SystemSettingsProvider } from "@/hooks/useSystemSettings";
 import { PWAUpdateNotification } from "@/components/pwa/PWAUpdateNotification";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
+import { QuoteCartProvider } from "@/modules/magaza/context/QuoteCartContext";
 
 // Lazy load pages
 const Index = lazy(() => import("./pages/Index"));
@@ -17,6 +18,12 @@ const Auth = lazy(() => import("./pages/Auth"));
 const Install = lazy(() => import("./pages/Install"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const ImportInventory = lazy(() => import("./pages/ImportInventory"));
+
+// Magaza (public storefront)
+const MagazaPage = lazy(() => import("./modules/magaza/pages/MagazaPage"));
+const ProductDetailPage = lazy(() => import("./modules/magaza/pages/ProductDetailPage"));
+const QuoteCartPage = lazy(() => import("./modules/magaza/pages/QuoteCartPage"));
+const GaleriPage = lazy(() => import("./modules/magaza/pages/GaleriPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -130,7 +137,17 @@ const AppRoutes = () => (
         <ProtectedRoute>
           <Index />
         </ProtectedRoute>
-      } />
+       } />
+       {/* Admin magaza routes */}
+       <Route path="/admin/magaza" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+       <Route path="/admin/magaza/urunler" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+       <Route path="/admin/magaza/teklifler" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+       <Route path="/admin/galeri" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+       {/* Public Magaza routes */}
+       <Route path="/magaza" element={<QuoteCartProvider><MagazaPage /></QuoteCartProvider>} />
+       <Route path="/magaza/urun/:slug" element={<QuoteCartProvider><ProductDetailPage /></QuoteCartProvider>} />
+       <Route path="/magaza/sepet" element={<QuoteCartProvider><QuoteCartPage /></QuoteCartProvider>} />
+       <Route path="/galeri" element={<QuoteCartProvider><GaleriPage /></QuoteCartProvider>} />
        <Route path="/import-inventory" element={<ProtectedRoute><ImportInventory /></ProtectedRoute>} />
        <Route path="/install" element={<Install />} />
       <Route path="*" element={<NotFound />} />

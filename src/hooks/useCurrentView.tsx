@@ -15,6 +15,10 @@ const viewRoutes: Record<ViewMode, string> = {
   settings: '/settings',
   archive: '/archive',
   'control-center': '/control-center',
+  'admin-magaza': '/admin/magaza',
+  'admin-magaza-urunler': '/admin/magaza/urunler',
+  'admin-magaza-teklifler': '/admin/magaza/teklifler',
+  'admin-galeri': '/admin/galeri',
 };
 
 const routeToView: Record<string, ViewMode> = {
@@ -30,6 +34,10 @@ const routeToView: Record<string, ViewMode> = {
   '/settings': 'settings',
   '/archive': 'archive',
   '/control-center': 'control-center',
+  '/admin/magaza': 'admin-magaza',
+  '/admin/magaza/urunler': 'admin-magaza-urunler',
+  '/admin/magaza/teklifler': 'admin-magaza-teklifler',
+  '/admin/galeri': 'admin-galeri',
 };
 
 export function useCurrentView() {

@@ -331,6 +331,48 @@ export type Database = {
         }
         Relationships: []
       }
+      gallery_products: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          images: Json | null
+          price_hint: number | null
+          slug: string | null
+          sort_order: number | null
+          tags: string[] | null
+          title: string
+          visible: boolean | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          images?: Json | null
+          price_hint?: number | null
+          slug?: string | null
+          sort_order?: number | null
+          tags?: string[] | null
+          title: string
+          visible?: boolean | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          images?: Json | null
+          price_hint?: number | null
+          slug?: string | null
+          sort_order?: number | null
+          tags?: string[] | null
+          title?: string
+          visible?: boolean | null
+        }
+        Relationships: []
+      }
       login_attempts: {
         Row: {
           created_at: string
@@ -980,6 +1022,80 @@ export type Database = {
           },
         ]
       }
+      quote_request_items: {
+        Row: {
+          gallery_id: string | null
+          id: string
+          note: string | null
+          product_id: string | null
+          quantity: number | null
+          quote_id: string
+          unit: string | null
+        }
+        Insert: {
+          gallery_id?: string | null
+          id?: string
+          note?: string | null
+          product_id?: string | null
+          quantity?: number | null
+          quote_id: string
+          unit?: string | null
+        }
+        Update: {
+          gallery_id?: string | null
+          id?: string
+          note?: string | null
+          product_id?: string | null
+          quantity?: number | null
+          quote_id?: string
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_request_items_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quote_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_requests: {
+        Row: {
+          company: string | null
+          created_at: string | null
+          customer_id: string | null
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          status: string | null
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          status?: string | null
+        }
+        Update: {
+          company?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       review_votes: {
         Row: {
           created_at: string | null
@@ -1258,6 +1374,77 @@ export type Database = {
             columns: ["shelf_id"]
             isOneToOne: false
             referencedRelation: "shelves"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_products: {
+        Row: {
+          allow_cart: boolean | null
+          allow_quote: boolean | null
+          badge: string | null
+          compare_price: number | null
+          created_at: string | null
+          currency: string | null
+          description_override: string | null
+          id: string
+          max_qty: number | null
+          min_qty: number | null
+          order_step: number | null
+          price: number | null
+          product_id: string
+          show_stock: boolean | null
+          slug: string
+          sort_order: number | null
+          title_override: string | null
+          visible: boolean | null
+        }
+        Insert: {
+          allow_cart?: boolean | null
+          allow_quote?: boolean | null
+          badge?: string | null
+          compare_price?: number | null
+          created_at?: string | null
+          currency?: string | null
+          description_override?: string | null
+          id?: string
+          max_qty?: number | null
+          min_qty?: number | null
+          order_step?: number | null
+          price?: number | null
+          product_id: string
+          show_stock?: boolean | null
+          slug: string
+          sort_order?: number | null
+          title_override?: string | null
+          visible?: boolean | null
+        }
+        Update: {
+          allow_cart?: boolean | null
+          allow_quote?: boolean | null
+          badge?: string | null
+          compare_price?: number | null
+          created_at?: string | null
+          currency?: string | null
+          description_override?: string | null
+          id?: string
+          max_qty?: number | null
+          min_qty?: number | null
+          order_step?: number | null
+          price?: number | null
+          product_id?: string
+          show_stock?: boolean | null
+          slug?: string
+          sort_order?: number | null
+          title_override?: string | null
+          visible?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
