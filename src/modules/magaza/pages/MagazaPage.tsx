@@ -80,7 +80,7 @@ export default function MagazaPage() {
             </Link>
             <div className="hidden md:flex items-center gap-6">
               <Link to="/" className="text-sm text-[hsl(215_15%_55%)] hover:text-[hsl(210_20%_85%)] transition-colors">Ana Sayfa</Link>
-              <Link to="/magaza/galeri" className="text-sm text-[hsl(215_15%_55%)] hover:text-[hsl(210_20%_85%)] transition-colors">Galeri</Link>
+              <Link to="/galeri" className="text-sm text-[hsl(215_15%_55%)] hover:text-[hsl(210_20%_85%)] transition-colors">Galeri</Link>
               <Link to="/" className="text-sm text-[hsl(215_15%_55%)] hover:text-[hsl(210_20%_85%)] transition-colors">Depo</Link>
             </div>
           </div>
