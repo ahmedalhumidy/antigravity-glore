@@ -1,14 +1,16 @@
 import { Package, ShoppingCart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useQuoteCartContext } from '../context/QuoteCartContext';
+import { calculateDiscount, type Promotion } from '../hooks/usePromotions';
 import type { StoreProduct } from '../types';
 
 interface Props {
   item: StoreProduct;
   onQuickView?: (item: StoreProduct) => void;
+  activePromotions?: Promotion[];
 }
 
-export function MagazaProductCard({ item, onQuickView }: Props) {
+export function MagazaProductCard({ item, onQuickView, activePromotions = [] }: Props) {
   const { addItem } = useQuoteCartContext();
 
   const title = item.title_override || item.product?.urun_adi || '';
@@ -18,6 +20,15 @@ export function MagazaProductCard({ item, onQuickView }: Props) {
   const stock = item.product?.mevcut_stok || 0;
   const outOfStock = stock <= 0;
   const category = item.category || item.product?.category || 'Kategorisiz';
+
+  // Find applicable automatic promotion
+  const applicablePromo = activePromotions.find(p => {
+    if (p.promotion_type !== 'automatic') return false;
+    if (p.category && p.category !== category) return false;
+    return true;
+  });
+  const price = item.price || 0;
+  const promoResult = applicablePromo && price > 0 ? calculateDiscount(price, applicablePromo) : null;
 
   // Status badge
   const getStatusBadge = () => {
@@ -81,9 +92,24 @@ export function MagazaProductCard({ item, onQuickView }: Props) {
       {/* Body */}
       <div className="p-3 flex flex-col flex-1">
         <h3 className="text-sm font-medium text-[hsl(210_20%_90%)] line-clamp-2 leading-snug mb-1">{title}</h3>
-        <p className="text-[11px] text-[hsl(215_15%_40%)] font-mono mb-3">{sku}</p>
+        <p className="text-[11px] text-[hsl(215_15%_40%)] font-mono mb-1">{sku}</p>
 
-        {/* Bottom row */}
+        {/* Price with discount */}
+        {promoResult && price > 0 ? (
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs text-[hsl(215_15%_45%)] line-through">₺{price.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
+            <span className="text-sm font-bold text-[hsl(142_76%_46%)]">₺{promoResult.finalPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
+          </div>
+        ) : price > 0 ? (
+          <p className="text-sm font-semibold text-[hsl(210_20%_85%)] mb-2">₺{price.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</p>
+        ) : null}
+
+        {/* Promo badge */}
+        {applicablePromo && (
+          <Badge className="bg-[hsl(38_92%_50%)] text-[hsl(215_25%_8%)] text-[10px] mb-2 w-fit">
+            {applicablePromo.discount_type === 'percentage' ? `%${applicablePromo.discount_value} İndirim` : `₺${applicablePromo.discount_value} İndirim`}
+          </Badge>
+        )}
         <div className="mt-auto flex items-center justify-between">
           <span className="text-sm text-[hsl(210_20%_80%)]">
             <span className="font-semibold">{stock}</span>

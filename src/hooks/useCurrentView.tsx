@@ -18,6 +18,7 @@ const viewRoutes: Record<ViewMode, string> = {
   'admin-magaza': '/admin/magaza',
   'admin-magaza-urunler': '/admin/magaza/urunler',
   'admin-magaza-teklifler': '/admin/magaza/teklifler',
+  'admin-magaza-kampanyalar': '/admin/magaza/kampanyalar',
   'admin-galeri': '/admin/galeri',
 };
 
@@ -37,6 +38,7 @@ const routeToView: Record<string, ViewMode> = {
   '/admin/magaza': 'admin-magaza',
   '/admin/magaza/urunler': 'admin-magaza-urunler',
   '/admin/magaza/teklifler': 'admin-magaza-teklifler',
+  '/admin/magaza/kampanyalar': 'admin-magaza-kampanyalar',
   '/admin/galeri': 'admin-galeri',
 };
 

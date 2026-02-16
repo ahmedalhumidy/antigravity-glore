@@ -146,6 +146,7 @@ const AppRoutes = () => (
        <Route path="/admin/magaza" element={<ProtectedRoute><Index /></ProtectedRoute>} />
        <Route path="/admin/magaza/urunler" element={<ProtectedRoute><Index /></ProtectedRoute>} />
        <Route path="/admin/magaza/teklifler" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+       <Route path="/admin/magaza/kampanyalar" element={<ProtectedRoute><Index /></ProtectedRoute>} />
        <Route path="/admin/galeri" element={<ProtectedRoute><Index /></ProtectedRoute>} />
        {/* Public Magaza routes — shared layout */}
        <Route element={<QuoteCartProvider><StorefrontLayout /></QuoteCartProvider>}>

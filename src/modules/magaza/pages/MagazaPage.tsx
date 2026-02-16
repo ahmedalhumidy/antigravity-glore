@@ -3,16 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { MagazaProductCard } from '../components/MagazaProductCard';
 import { QuickViewModal } from '../components/QuickViewModal';
 import { useStoreProducts } from '../hooks/useStoreProducts';
+import { useActivePromotions } from '../hooks/usePromotions';
 import { useQuoteCartContext } from '../context/QuoteCartContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Search, Package, Loader2, Store } from 'lucide-react';
+import { Search, Package, Loader2, Store, Percent } from 'lucide-react';
 import type { StoreProduct } from '../types';
 
 const PAGE_SIZE = 30;
 
 export default function MagazaPage() {
   const { products, isLoading } = useStoreProducts();
+  const { data: activePromotions = [] } = useActivePromotions();
   const { itemCount } = useQuoteCartContext();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -70,6 +72,20 @@ export default function MagazaPage() {
 
   return (
     <div className="min-h-screen bg-[hsl(215_25%_6%)] text-[hsl(210_20%_92%)]">
+      {/* ========== PROMO BANNER ========== */}
+      {activePromotions.filter(p => p.promotion_type === 'automatic').length > 0 && (
+        <div className="bg-gradient-to-r from-[hsl(38_92%_50%)] to-[hsl(25_95%_53%)] text-[hsl(215_25%_8%)]">
+          <div className="container mx-auto px-4 py-2 flex items-center justify-center gap-2 text-sm font-medium">
+            <Percent className="w-4 h-4" />
+            {activePromotions.filter(p => p.promotion_type === 'automatic').map(p => (
+              <span key={p.id}>
+                {p.name} — {p.discount_type === 'percentage' ? `%${p.discount_value} indirim` : `₺${p.discount_value} indirim`}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ========== HEADER ========== */}
       <div className="container mx-auto px-4 py-8">
         <div className="bg-[hsl(215_25%_10%)] rounded-2xl border border-[hsl(215_25%_16%)] p-6">
@@ -158,7 +174,7 @@ export default function MagazaPage() {
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {visible.map(p => (
-                <MagazaProductCard key={p.id} item={p} onQuickView={setQuickViewItem} />
+                <MagazaProductCard key={p.id} item={p} onQuickView={setQuickViewItem} activePromotions={activePromotions} />
               ))}
             </div>
 

@@ -1,19 +1,24 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trash2, ArrowLeft, Send, Minus, Plus } from 'lucide-react';
+import { Trash2, ArrowLeft, Send, Minus, Plus, Tag, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { MagazaHeader } from '../components/MagazaHeader';
 import { useQuoteCartContext } from '../context/QuoteCartContext';
 import { useAuth } from '@/hooks/useAuth';
+import { useValidateCoupon, calculateDiscount, type Promotion } from '../hooks/usePromotions';
 
 export default function QuoteCartPage() {
   const { items, removeItem, updateQuantity, updateNote, submitQuote, submitting, clearCart } = useQuoteCartContext();
   const { user } = useAuth();
   const [search, setSearch] = useState('');
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<Promotion | null>(null);
+  const validateCoupon = useValidateCoupon();
   const [form, setForm] = useState({
     name: '',
     phone: '',
@@ -91,6 +96,57 @@ export default function QuoteCartPage() {
               <Button variant="outline" size="sm" onClick={clearCart} className="text-destructive">
                 Sepeti Temizle
               </Button>
+
+              {/* Coupon Section */}
+              <Card className="mt-4">
+                <CardContent className="p-3">
+                  <p className="text-xs font-medium mb-2 flex items-center gap-1"><Tag className="w-3.5 h-3.5" />Kupon Kodu</p>
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between bg-[hsl(142_76%_36%/0.1)] border border-[hsl(142_76%_36%/0.3)] rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-[hsl(142_76%_36%)]" />
+                        <div>
+                          <p className="text-sm font-medium">{appliedCoupon.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {appliedCoupon.discount_type === 'percentage' ? `%${appliedCoupon.discount_value} indirim` : `₺${appliedCoupon.discount_value} indirim`}
+                          </p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setAppliedCoupon(null); setCouponCode(''); }}>
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Kupon kodunu girin"
+                        value={couponCode}
+                        onChange={e => setCouponCode(e.target.value.toUpperCase())}
+                        className="h-8 text-xs font-mono"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs"
+                        disabled={!couponCode.trim() || validateCoupon.isPending}
+                        onClick={async () => {
+                          try {
+                            const promo = await validateCoupon.mutateAsync(couponCode);
+                            setAppliedCoupon(promo);
+                          } catch (e: any) {
+                            // error is shown by mutation
+                          }
+                        }}
+                      >
+                        {validateCoupon.isPending ? '...' : 'Uygula'}
+                      </Button>
+                    </div>
+                  )}
+                  {validateCoupon.isError && !appliedCoupon && (
+                    <p className="text-xs text-destructive mt-1">{(validateCoupon.error as Error).message}</p>
+                  )}
+                </CardContent>
+              </Card>
             </div>
 
             {/* Quote Form */}
