@@ -30,10 +30,7 @@ export function LocationCard({
   const lowStockCount = products.filter(p => p.mevcutStok < p.minStok).length;
 
   return (
-    <div 
-      className="stat-card animate-fade-in"
-      style={{ animationDelay: `${index * 30}ms` }}
-    >
+    <div className="stat-card">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
