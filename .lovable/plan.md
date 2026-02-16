@@ -1,61 +1,49 @@
 
 
-# Landing Page - Sectioned Home Page (Enterprise Hub)
+# Fix Swipe Gestures on Product Cards (Mobile)
 
-## Overview
-Create a professional, sectioned landing page at a new `/home` route that serves as the public-facing entry point for the GLORE platform. This page will feature a hero section with live stats, CTA buttons, and module cards -- inspired by the reference screenshot. The existing `/` route stays as the protected dashboard.
+## Problems Identified
 
-## Structure (Top to Bottom)
+1. **Swipe icons not clearly visible**: The Giris/Cikis icons and text are hidden behind the card during swipe. The background layer uses low-opacity colors (`bg-success/20`, `bg-destructive/20`) that blend into the dark theme, making them nearly invisible.
 
-### Section 1: Hero
-- Badge pill at top: "Kurumsal Depo Yonetim Platformu"
-- Large gradient title: "Depo Yonetim Sistemi" with accent color on first line
-- Subtitle describing the platform
-- Two live stat badges (total products count, total stock count) pulled from the database
-- Three CTA buttons: "Depoya Git" (primary, links to `/`), "Magazaya Git" (outline, links to `/magaza`), "Galeriyi Gor" (outline, links to `/galeri`)
+2. **Swipe opens a modal instead of acting directly**: When the swipe threshold is reached, `onStockAction` is called which sets state to open `StockActionModal` -- a full modal dialog. The user expects the swipe to reveal inline action buttons (like iOS-style swipe actions) that stay visible until tapped, rather than immediately launching a modal.
 
-### Section 2: Module Cards Grid (3x2)
-Six cards with icons, titles, and descriptions for:
-1. **Depo Yonetimi** - WMS, envanter, lokasyonlar
-2. **Magaza** - B2C/B2B satis portali
-3. **Galeri** - Urun galerisi ve katalog
-4. **Urun Katalogu** - Stok durumu, barkod bilgileri
-5. **Stok Hareketleri** - Giris, cikis, transfer
-6. **Etiket Yazdirma** - Barkod etiketleri
+## Solution
 
-Each card has a colored icon, bold title, and description. Cards are clickable and navigate to their respective sections.
+### 1. Redesign Swipe Reveal Layer (ProductList.tsx - SwipeableProductCard)
 
-### Section 3: Footer
-Simple footer line: "Depo Yonetim Sistemi -- Kurumsal Cozum"
+Make the background action indicators much more prominent:
+- Increase background opacity: `bg-success` and `bg-destructive` at higher visibility
+- Make icons larger (w-8 h-8) with bold white color for contrast
+- Show label text ("Giris" / "Cikis") in white bold, always visible during swipe
+- Position icons to stay anchored at the edges so they "peek out" as the card slides
 
-## Design Style
-- Dark gradient background (matching the reference screenshot's deep blue/dark theme)
-- Glassmorphism cards with subtle borders and backdrop blur
-- Gradient text for the main title
-- Smooth hover animations on cards
-- Fully responsive: 1 column on mobile, 2 on tablet, 3 on desktop
+### 2. Change Swipe Behavior to Inline Actions (not Modal)
+
+Instead of immediately calling `onStockAction` (which opens a modal), the swipe will:
+- When swiped past threshold: **lock the card** in the swiped position, revealing action buttons
+- The revealed buttons (Giris / Cikis) are tappable and THEN trigger `onStockAction`
+- Tapping elsewhere or swiping back resets the card to its original position
+- This gives the user a clear "peek and confirm" interaction pattern
 
 ## Technical Details
 
-### Files to Create
-1. **`src/pages/LandingPage.tsx`** -- The full landing page component with all sections, self-contained with inline data
+### File: `src/hooks/useSwipeGesture.tsx`
+- Add a `locked` state that holds the card offset at a fixed position (e.g., 80px) after threshold is passed
+- Add a `resetSwipe()` function to allow external reset
+- When locked, the card stays translated and the action area is fully visible
 
-### Files to Modify
-1. **`src/App.tsx`** -- Add `/home` public route for the landing page
-2. Optionally redirect unauthenticated users from `/auth` page to see a link to `/home`
+### File: `src/components/products/ProductList.tsx` (SwipeableProductCard)
+- Redesign the background reveal layer:
+  - Left side (swipe right): solid green background with large white Plus icon and "Giris" text
+  - Right side (swipe left): solid red background with large white Minus icon and "Cikis" text
+- When card is locked in swiped position, the revealed area becomes a clickable button
+- Clicking the revealed action button calls `onStockAction` and resets the swipe
+- Clicking the card itself (when not swiping) still navigates to product detail
 
-### Routing
-- `/home` -- Public landing page (no auth required)
-- `/` -- Protected dashboard (unchanged)
-- The landing page CTAs link to `/` (dashboard, requires login), `/magaza`, and `/galeri`
-
-### Stats
-- Product count and stock count will be fetched from the `products` table using a simple public query (or hardcoded initially and made dynamic later)
-
-### No Changes To
-- Dashboard component
-- Any warehouse logic
-- Bottom navigation
-- Sidebar
-- Existing protected routes
+### Visual Improvements
+- Background: `bg-success` / `bg-destructive` (fully opaque, not transparent)
+- Icons: white, large (w-7 h-7), with text label below or beside
+- Smooth spring-like animation when locking into position
+- Card slightly scales down during active swipe for tactile feedback
 
