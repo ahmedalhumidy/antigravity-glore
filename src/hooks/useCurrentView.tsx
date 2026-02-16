@@ -21,6 +21,14 @@ const viewRoutes: Record<ViewMode, string> = {
   'admin-magaza-kampanyalar': '/admin/magaza/kampanyalar',
   'admin-galeri': '/admin/galeri',
   more: '/more',
+  'uretim-baski': '/uretim/baski',
+  'uretim-kesim': '/uretim/kesim',
+  'uretim-firinlar': '/uretim/firinlar',
+  'uretim-zimpara': '/uretim/zimpara',
+  'uretim-dekor': '/uretim/dekor',
+  'uretim-tunel-firin': '/uretim/tunel-firin',
+  'uretim-paketleme': '/uretim/paketleme',
+  'uretim-dabo': '/uretim/dabo',
 };
 
 const routeToView: Record<string, ViewMode> = {
@@ -42,6 +50,14 @@ const routeToView: Record<string, ViewMode> = {
   '/admin/magaza/kampanyalar': 'admin-magaza-kampanyalar',
   '/admin/galeri': 'admin-galeri',
   '/more': 'more',
+  '/uretim/baski': 'uretim-baski',
+  '/uretim/kesim': 'uretim-kesim',
+  '/uretim/firinlar': 'uretim-firinlar',
+  '/uretim/zimpara': 'uretim-zimpara',
+  '/uretim/dekor': 'uretim-dekor',
+  '/uretim/tunel-firin': 'uretim-tunel-firin',
+  '/uretim/paketleme': 'uretim-paketleme',
+  '/uretim/dabo': 'uretim-dabo',
 };
 
 export function useCurrentView() {

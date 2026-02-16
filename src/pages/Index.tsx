@@ -45,6 +45,14 @@ const AdminMagazaPage = lazy(() => import("@/modules/magaza/pages/AdminMagazaPag
 const AdminGaleriPage = lazy(() => import("@/modules/magaza/pages/AdminGaleriPage"));
 const AdminQuotesPage = lazy(() => import("@/modules/magaza/pages/AdminQuotesPage"));
 const AdminPromotionsPage = lazy(() => import("@/modules/magaza/pages/AdminPromotionsPage"));
+const BaskiPage = lazy(() => import("@/modules/production/pages/BaskiPage"));
+const KesimPage = lazy(() => import("@/modules/production/pages/KesimPage"));
+const FirinlarPage = lazy(() => import("@/modules/production/pages/FirinlarPage"));
+const ZimparaPage = lazy(() => import("@/modules/production/pages/ZimparaPage"));
+const DekorPage = lazy(() => import("@/modules/production/pages/DekorPage"));
+const TunelFirinPage = lazy(() => import("@/modules/production/pages/TunelFirinPage"));
+const PaketlemePage = lazy(() => import("@/modules/production/pages/PaketlemePage"));
+const DaboPage = lazy(() => import("@/modules/production/pages/DaboPage"));
 
 // Lazy load scan session
 const ScanSessionModal = lazy(() =>
@@ -214,6 +222,14 @@ const Index = () => {
     'admin-magaza-kampanyalar': "Kampanyalar",
     'admin-galeri': "Galeri Yönetimi",
     more: "Daha Fazla",
+    'uretim-baski': "Baskı",
+    'uretim-kesim': "Kesim",
+    'uretim-firinlar': "Fırınlar",
+    'uretim-zimpara': "Zımpara",
+    'uretim-dekor': "Dekor",
+    'uretim-tunel-firin': "Tünel Fırın",
+    'uretim-paketleme': "Paketleme",
+    'uretim-dabo': "Dabo",
   };
 
   const isLoading = productsLoading || movementsLoading;
@@ -382,6 +398,15 @@ const Index = () => {
               <AdminGaleriPage />
             </Suspense>
           )}
+
+          {currentView === "uretim-baski" && (<Suspense fallback={<LazyPageLoader />}><BaskiPage /></Suspense>)}
+          {currentView === "uretim-kesim" && (<Suspense fallback={<LazyPageLoader />}><KesimPage /></Suspense>)}
+          {currentView === "uretim-firinlar" && (<Suspense fallback={<LazyPageLoader />}><FirinlarPage /></Suspense>)}
+          {currentView === "uretim-zimpara" && (<Suspense fallback={<LazyPageLoader />}><ZimparaPage /></Suspense>)}
+          {currentView === "uretim-dekor" && (<Suspense fallback={<LazyPageLoader />}><DekorPage /></Suspense>)}
+          {currentView === "uretim-tunel-firin" && (<Suspense fallback={<LazyPageLoader />}><TunelFirinPage /></Suspense>)}
+          {currentView === "uretim-paketleme" && (<Suspense fallback={<LazyPageLoader />}><PaketlemePage /></Suspense>)}
+          {currentView === "uretim-dabo" && (<Suspense fallback={<LazyPageLoader />}><DaboPage /></Suspense>)}
 
         </main>
       </div>

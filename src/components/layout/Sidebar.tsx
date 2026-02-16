@@ -14,7 +14,16 @@ import {
   Store,
   Image,
   FileText,
-  Percent
+  Percent,
+  Factory,
+  Stamp,
+  Scissors,
+  Flame,
+  Eraser,
+  Paintbrush,
+  ThermometerSun,
+  PackageCheck,
+  Drill
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { ViewMode } from '@/types/stock';
@@ -34,6 +43,7 @@ interface MenuItem {
   icon: typeof LayoutDashboard;
   label: string;
   requiredPermission?: PermissionType;
+  group?: string;
 }
 
 const menuItems: MenuItem[] = [
@@ -53,6 +63,17 @@ const menuItems: MenuItem[] = [
   { id: 'admin-magaza-kampanyalar', path: '/admin/magaza/kampanyalar', icon: Percent, label: 'Kampanyalar', requiredPermission: 'settings.view' },
   { id: 'admin-galeri', path: '/admin/galeri', icon: Image, label: 'Galeri Yönetimi', requiredPermission: 'settings.view' },
   { id: 'profile', path: '/profile', icon: UserCog, label: 'Profil Ayarları' },
+];
+
+const productionItems: MenuItem[] = [
+  { id: 'uretim-baski', path: '/uretim/baski', icon: Stamp, label: 'Baskı', group: 'uretim' },
+  { id: 'uretim-kesim', path: '/uretim/kesim', icon: Scissors, label: 'Kesim', group: 'uretim' },
+  { id: 'uretim-firinlar', path: '/uretim/firinlar', icon: Flame, label: 'Fırınlar', group: 'uretim' },
+  { id: 'uretim-zimpara', path: '/uretim/zimpara', icon: Eraser, label: 'Zımpara', group: 'uretim' },
+  { id: 'uretim-dekor', path: '/uretim/dekor', icon: Paintbrush, label: 'Dekor', group: 'uretim' },
+  { id: 'uretim-tunel-firin', path: '/uretim/tunel-firin', icon: ThermometerSun, label: 'Tünel Fırın', group: 'uretim' },
+  { id: 'uretim-paketleme', path: '/uretim/paketleme', icon: PackageCheck, label: 'Paketleme', group: 'uretim' },
+  { id: 'uretim-dabo', path: '/uretim/dabo', icon: Drill, label: 'Dabo', group: 'uretim' },
 ];
 
 export function Sidebar({ currentView, onViewChange, alertCount }: SidebarProps) {
@@ -120,6 +141,32 @@ export function Sidebar({ currentView, onViewChange, alertCount }: SidebarProps)
             </Link>
           );
         })}
+
+        {/* Üretim Section */}
+        <div className="pt-4 pb-1">
+          <div className="flex items-center gap-2 px-3 mb-1">
+            <Factory className="w-4 h-4 text-sidebar-foreground/50" />
+            <span className="text-[11px] font-semibold text-sidebar-foreground/50 uppercase tracking-wider">Üretim</span>
+          </div>
+          {productionItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = getIsActive(item.path);
+            return (
+              <Link
+                key={item.id}
+                to={item.path}
+                onClick={() => onViewChange(item.id)}
+                className={cn(
+                  'sidebar-link w-full',
+                  isActive && 'sidebar-link-active'
+                )}
+              >
+                <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+                <span className="text-sm">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
       </nav>
 
       {/* Footer */}
