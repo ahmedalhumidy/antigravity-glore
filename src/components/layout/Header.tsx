@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Menu } from 'lucide-react';
 import { Product } from '@/types/stock';
 import { CommandPalette } from './CommandPalette';
@@ -7,6 +8,7 @@ import { QuickCreateMenu } from './QuickCreateMenu';
 import { ModuleSwitcher } from './ModuleSwitcher';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { SyncStatusChip } from './SyncStatusChip';
+import { TransferShelfModal } from '@/components/movements/TransferShelfModal';
 import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
@@ -33,6 +35,7 @@ export function Header({
   onStockUpdated,
 }: HeaderProps) {
   const navigate = useNavigate();
+  const [showTransfer, setShowTransfer] = useState(false);
 
   const handleNavigate = (view: string) => {
     // view comes as path from command palette
@@ -86,9 +89,17 @@ export function Header({
           <NotificationCenter />
 
           {/* Quick Create Menu */}
-          <QuickCreateMenu onAddProduct={onAddProduct} />
+          <QuickCreateMenu onAddProduct={onAddProduct} onOpenTransfer={() => setShowTransfer(true)} />
         </div>
       </div>
+
+      {/* Transfer Modal */}
+      <TransferShelfModal
+        isOpen={showTransfer}
+        onClose={() => setShowTransfer(false)}
+        products={products}
+        onTransferred={onStockUpdated}
+      />
     </header>
   );
 }

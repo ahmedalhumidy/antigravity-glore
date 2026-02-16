@@ -13,6 +13,14 @@ export interface StockMovementInput {
   shelfId?: string;
 }
 
+export interface ShelfTransferInput {
+  productId: string;
+  fromShelfName: string;
+  toShelfId: string;
+  toShelfName: string;
+  note?: string;
+}
+
 export interface StockMovementResult {
   id: string;
   productId: string;
@@ -150,6 +158,53 @@ export const stockService = {
       console.error('Error creating stock movement:', error);
       toast.error('Hareket eklenirken hata oluştu');
       return null;
+    }
+  },
+
+  /**
+   * Transfer a product from one shelf to another
+   * Updates the product's raf_konum and logs the activity
+   */
+  async transferShelf(input: ShelfTransferInput): Promise<boolean> {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const userId = session.session?.user.id;
+
+      if (!userId) {
+        toast.error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+        return false;
+      }
+
+      // Update product location
+      const { error: updateError } = await supabase
+        .from('products')
+        .update({ raf_konum: input.toShelfName })
+        .eq('id', input.productId);
+
+      if (updateError) throw updateError;
+
+      // Log the transfer in product_activity_log
+      const { error: logError } = await supabase
+        .from('product_activity_log')
+        .insert({
+          product_id: input.productId,
+          action_type: 'transfer',
+          performed_by: userId,
+          old_values: { raf_konum: input.fromShelfName },
+          new_values: { raf_konum: input.toShelfName },
+          note: input.note || `Raf transferi: ${input.fromShelfName} → ${input.toShelfName}`,
+        });
+
+      if (logError) {
+        console.error('Error logging transfer:', logError);
+      }
+
+      toast.success(`Transfer başarılı: ${input.fromShelfName} → ${input.toShelfName}`);
+      return true;
+    } catch (error) {
+      console.error('Error transferring shelf:', error);
+      toast.error('Transfer işlemi başarısız oldu');
+      return false;
     }
   },
 

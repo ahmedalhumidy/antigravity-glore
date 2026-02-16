@@ -1,11 +1,13 @@
 import { useState, lazy, Suspense } from 'react';
-import { ArrowLeftRight, Plus, History, ShieldAlert } from 'lucide-react';
+import { ArrowLeftRight, Plus, History, ShieldAlert, RefreshCw } from 'lucide-react';
 import { Product, StockMovement } from '@/types/stock';
 import { MovementForm } from './MovementForm';
 import { MovementHistory } from './MovementHistory';
+import { TransferShelfModal } from './TransferShelfModal';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 const ScanSessionLauncher = lazy(() =>
@@ -37,6 +39,7 @@ export function MovementPage({ products, movements, searchQuery, onAddMovement, 
   const canCreateMovements = hasPermission('stock_movements.create');
   const scanSessionEnabled = isModuleEnabled('scan_session');
   const [activeTab, setActiveTab] = useState<Tab>(canCreateMovements ? 'form' : 'history');
+  const [showTransfer, setShowTransfer] = useState(false);
 
   return (
     <div className="space-y-6 animate-slide-up">
@@ -80,6 +83,18 @@ export function MovementPage({ products, movements, searchQuery, onAddMovement, 
             />
           </Suspense>
         )}
+
+        {/* Transfer Button */}
+        {canCreateMovements && (
+          <Button
+            variant="outline"
+            className="gap-2 border-primary/30 hover:bg-primary/10 hover:border-primary"
+            onClick={() => setShowTransfer(true)}
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span className="hidden sm:inline">Raf Transferi</span>
+          </Button>
+        )}
       </div>
 
       {/* Content */}
@@ -105,6 +120,14 @@ export function MovementPage({ products, movements, searchQuery, onAddMovement, 
       {activeTab === 'history' && (
         <MovementHistory movements={movements} searchQuery={searchQuery} />
       )}
+
+      {/* Transfer Modal */}
+      <TransferShelfModal
+        isOpen={showTransfer}
+        onClose={() => setShowTransfer(false)}
+        products={products}
+        onTransferred={onStockUpdated}
+      />
     </div>
   );
 }
