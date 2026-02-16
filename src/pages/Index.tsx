@@ -6,6 +6,7 @@ import { ProductList } from "@/components/products/ProductList";
 import { ProductModal } from "@/components/products/ProductModal";
 import { StockActionModal } from "@/components/products/StockActionModal";
 import { ProductIntelligenceDrawer } from "@/components/products/ProductIntelligenceDrawer";
+import { MobileMoreHub } from "@/components/layout/MobileMoreHub";
 import { MovementPage } from "@/components/movements/MovementPage";
 import { LocationView } from "@/components/locations/LocationView";
 import { AlertList } from "@/components/alerts/AlertList";
@@ -209,6 +210,7 @@ const Index = () => {
     'admin-magaza-teklifler': "Teklif Talepleri",
     'admin-magaza-kampanyalar': "Kampanyalar",
     'admin-galeri': "Galeri Yönetimi",
+    more: "Daha Fazla",
   };
 
   const isLoading = productsLoading || movementsLoading;
@@ -376,6 +378,10 @@ const Index = () => {
             <Suspense fallback={<LazyPageLoader />}>
               <AdminGaleriPage />
             </Suspense>
+          )}
+
+          {currentView === "more" && (
+            <MobileMoreHub alertCount={lowStockCount} />
           )}
         </main>
       </div>

@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Package, ArrowLeftRight, UserCog, ScanLine } from 'lucide-react';
+import { LayoutDashboard, Package, ArrowLeftRight, Grid2X2, ScanLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const tabs = [
@@ -7,7 +7,7 @@ const tabs = [
   { path: '/products', icon: Package, label: 'Ürünler' },
   { path: '__scan__', icon: ScanLine, label: 'Tara' },
   { path: '/movements', icon: ArrowLeftRight, label: 'Hareketler' },
-  { path: '/profile', icon: UserCog, label: 'Profil' },
+  { path: '/more', icon: Grid2X2, label: 'Daha Fazla' },
 ];
 
 interface MobileBottomNavProps {
