@@ -98,6 +98,7 @@ const Index = () => {
   const [stockActionType, setStockActionType] = useState<"giris" | "cikis">("giris");
   const [pendingBarcode, setPendingBarcode] = useState<string | undefined>();
   const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const lowStockCount = products.filter((p) => p.mevcutStok < p.minStok).length;
 
@@ -224,7 +225,7 @@ const Index = () => {
         <div className="lg:ml-64">
           <SkeletonLoader />
         </div>
-        <MobileBottomNav onScanPress={() => {}} />
+        <MobileBottomNav onScanPress={() => {}} onMenuPress={() => {}} />
       </div>
     );
   }
@@ -380,14 +381,14 @@ const Index = () => {
             </Suspense>
           )}
 
-          {currentView === "more" && (
-            <MobileMoreHub alertCount={lowStockCount} />
-          )}
         </main>
       </div>
 
       {/* Mobile Bottom Nav */}
-      <MobileBottomNav onScanPress={() => setScanModalOpen(true)} />
+      <MobileBottomNav onScanPress={() => setScanModalOpen(true)} onMenuPress={() => setMenuOpen(true)} />
+
+      {/* Mobile Menu Drawer */}
+      <MobileMoreHub open={menuOpen} onClose={() => setMenuOpen(false)} alertCount={lowStockCount} />
 
       {/* Scan Session Modal (lazy) */}
       {scanModalOpen && (
