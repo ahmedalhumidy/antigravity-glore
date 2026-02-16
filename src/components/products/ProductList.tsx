@@ -1,20 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Package, MapPin, AlertTriangle, MoreHorizontal, Edit2, Trash2, ArrowUpDown, Eye, Download, Printer, Tag } from 'lucide-react';
+import { Package, MapPin, AlertTriangle, ArrowUpDown, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Product } from '@/types/stock';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/usePermissions';
 import { BulkActions } from './BulkActions';
 import { CategoryFilter, getCategoryColor } from './CategoryFilter';
-import { printBarcodeLabels } from './BarcodeLabel';
 
 interface ProductListProps {
   products: Product[];
@@ -37,9 +30,7 @@ export function ProductList({
   onStockAction 
 }: ProductListProps) {
   const { hasPermission } = usePermissions();
-  const canEditProducts = hasPermission('products.update');
   const canDeleteProducts = hasPermission('products.delete');
-  const canCreateMovements = hasPermission('stock_movements.create');
 
   const [sortField, setSortField] = useState<SortField>('urunAdi');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
@@ -53,8 +44,6 @@ export function ProductList({
   const categories = useMemo(() => {
     const cats = new Set<string>();
     products.forEach(p => {
-      // products may have category from DB (mapped in useProducts or available via extra field)
-      // For now we derive from rafKonum prefix or use a dedicated field if available
       const cat = (p as any).category;
       if (cat) cats.add(cat);
     });
@@ -100,7 +89,6 @@ export function ProductList({
     setVisibleCount(PAGE_SIZE);
   }, [searchQuery, sortField, sortOrder, selectedCategory, PAGE_SIZE]);
 
-  // Clear selection when products change
   useEffect(() => {
     setSelectedIds(new Set());
   }, [products]);
@@ -133,7 +121,7 @@ export function ProductList({
 
   const SortButton = ({ field, label }: { field: SortField; label: string }) => (
     <button
-      onClick={() => handleSort(field)}
+      onClick={(e) => { e.stopPropagation(); handleSort(field); }}
       className="flex items-center gap-1 hover:text-foreground transition-colors"
     >
       {label}
@@ -239,9 +227,6 @@ export function ProductList({
                 <th className="text-center py-4 px-4 text-sm font-medium text-muted-foreground">
                   Durum
                 </th>
-                <th className="text-right py-4 px-4 text-sm font-medium text-muted-foreground">
-                  İşlemler
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -254,12 +239,13 @@ export function ProductList({
                   <tr 
                     key={product.id} 
                     className={cn(
-                      "table-row-hover border-b border-border last:border-0 animate-fade-in",
+                      "border-b border-border last:border-0 animate-fade-in cursor-pointer transition-colors hover:bg-accent/50",
                       isSelected && "bg-primary/5"
                     )}
                     style={delay ? { animationDelay: `${delay}ms` } : undefined}
+                    onClick={() => onViewProduct(product.id)}
                   >
-                    <td className="py-4 px-3">
+                    <td className="py-4 px-3" onClick={(e) => e.stopPropagation()}>
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => toggleSelect(product.id)}
@@ -322,62 +308,6 @@ export function ProductList({
                         </span>
                       )}
                     </td>
-                    <td className="py-4 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {canCreateMovements && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 text-success hover:bg-success/10 hover:text-success"
-                              onClick={() => onStockAction(product, 'giris')}
-                            >
-                              +
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => onStockAction(product, 'cikis')}
-                            >
-                              −
-                            </Button>
-                          </>
-                        )}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => onViewProduct(product.id)}>
-                              <Eye className="w-4 h-4 mr-2" />
-                              Görüntüle
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => printBarcodeLabels([product])}>
-                              <Printer className="w-4 h-4 mr-2" />
-                              Barkod Yazdır
-                            </DropdownMenuItem>
-                            {canEditProducts && (
-                              <DropdownMenuItem onClick={() => onEditProduct(product)}>
-                                <Edit2 className="w-4 h-4 mr-2" />
-                                Düzenle
-                              </DropdownMenuItem>
-                            )}
-                            {canDeleteProducts && (
-                              <DropdownMenuItem 
-                                onClick={() => onDeleteProduct(product.id)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Sil
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </td>
                   </tr>
                 );
               })}
@@ -396,15 +326,21 @@ export function ProductList({
           return (
             <div 
               key={product.id} 
-              className={cn("stat-card animate-slide-up", isSelected && "ring-2 ring-primary/30")}
+              className={cn(
+                "stat-card animate-slide-up cursor-pointer transition-colors hover:bg-accent/30 active:bg-accent/50",
+                isSelected && "ring-2 ring-primary/30"
+              )}
               style={delay ? { animationDelay: `${delay}ms` } : undefined}
+              onClick={() => onViewProduct(product.id)}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={() => toggleSelect(product.id)}
-                  />
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleSelect(product.id)}
+                    />
+                  </div>
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Package className="w-5 h-5 text-primary" />
                   </div>
@@ -423,15 +359,19 @@ export function ProductList({
                     </div>
                   </div>
                 </div>
-                {isLowStock && (
+                {isLowStock ? (
                   <span className="badge-status bg-destructive/10 text-destructive">
                     <AlertTriangle className="w-3 h-3 mr-1" />
                     Düşük
                   </span>
+                ) : (
+                  <span className="badge-status bg-success/10 text-success text-xs">
+                    Normal
+                  </span>
                 )}
               </div>
               
-              <div className="flex items-center justify-between text-sm mb-3">
+              <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <MapPin className="w-4 h-4" />
                   <span>{product.rafKonum}</span>
@@ -453,59 +393,6 @@ export function ProductList({
                     </div>
                   )}
                 </div>
-              </div>
-              
-              <div className="flex items-center gap-2 pt-3 border-t border-border">
-                {canCreateMovements && (
-                  <>
-                    <Button
-                      size="sm"
-                      className="flex-1 bg-success/10 text-success hover:bg-success/20 border-0"
-                      onClick={() => onStockAction(product, 'giris')}
-                    >
-                      + Giriş
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="flex-1 bg-destructive/10 text-destructive hover:bg-destructive/20 border-0"
-                      onClick={() => onStockAction(product, 'cikis')}
-                    >
-                      − Çıkış
-                    </Button>
-                  </>
-                )}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onViewProduct(product.id)}>
-                      <Eye className="w-4 h-4 mr-2" />
-                      Görüntüle
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => printBarcodeLabels([product])}>
-                      <Printer className="w-4 h-4 mr-2" />
-                      Barkod Yazdır
-                    </DropdownMenuItem>
-                    {canEditProducts && (
-                      <DropdownMenuItem onClick={() => onEditProduct(product)}>
-                        <Edit2 className="w-4 h-4 mr-2" />
-                        Düzenle
-                      </DropdownMenuItem>
-                    )}
-                    {canDeleteProducts && (
-                      <DropdownMenuItem 
-                        onClick={() => onDeleteProduct(product.id)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Sil
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
               </div>
             </div>
           );
