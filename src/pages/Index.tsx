@@ -39,6 +39,7 @@ const ControlCenterPage = lazy(() =>
 const AdminMagazaPage = lazy(() => import("@/modules/magaza/pages/AdminMagazaPage"));
 const AdminGaleriPage = lazy(() => import("@/modules/magaza/pages/AdminGaleriPage"));
 const AdminQuotesPage = lazy(() => import("@/modules/magaza/pages/AdminQuotesPage"));
+const AdminPromotionsPage = lazy(() => import("@/modules/magaza/pages/AdminPromotionsPage"));
 
 // Loading component for lazy loaded pages
 function LazyPageLoader() {
@@ -183,6 +184,7 @@ const Index = () => {
     'admin-magaza': "Mağaza Yönetimi",
     'admin-magaza-urunler': "Mağaza Ürünleri",
     'admin-magaza-teklifler': "Teklif Talepleri",
+    'admin-magaza-kampanyalar': "Kampanyalar",
     'admin-galeri': "Galeri Yönetimi",
   };
 
@@ -367,6 +369,12 @@ const Index = () => {
           {currentView === "admin-magaza-teklifler" && (
             <Suspense fallback={<LazyPageLoader />}>
               <AdminQuotesPage />
+            </Suspense>
+          )}
+
+          {currentView === "admin-magaza-kampanyalar" && (
+            <Suspense fallback={<LazyPageLoader />}>
+              <AdminPromotionsPage />
             </Suspense>
           )}
 
