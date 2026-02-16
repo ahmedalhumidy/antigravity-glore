@@ -9,15 +9,17 @@ import { ProductIntelligenceDrawer } from "@/components/products/ProductIntellig
 import { MovementPage } from "@/components/movements/MovementPage";
 import { LocationView } from "@/components/locations/LocationView";
 import { AlertList } from "@/components/alerts/AlertList";
+import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { Product, ViewMode } from "@/types/stock";
 import { useProducts } from "@/hooks/useProducts";
 import { useMovements } from "@/hooks/useMovements";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentView } from "@/hooks/useCurrentView";
 import { cn } from "@/lib/utils";
-import { X, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Lazy load heavy pages
 const UserManagement = lazy(() =>
@@ -42,11 +44,32 @@ const AdminGaleriPage = lazy(() => import("@/modules/magaza/pages/AdminGaleriPag
 const AdminQuotesPage = lazy(() => import("@/modules/magaza/pages/AdminQuotesPage"));
 const AdminPromotionsPage = lazy(() => import("@/modules/magaza/pages/AdminPromotionsPage"));
 
-// Loading component for lazy loaded pages
+// Lazy load scan session
+const ScanSessionModal = lazy(() =>
+  import("@/modules/scan-session/components/ScanSessionModal").then((m) => ({ default: m.ScanSessionModal })),
+);
+
 function LazyPageLoader() {
   return (
     <div className="flex items-center justify-center py-12">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+  );
+}
+
+function SkeletonLoader() {
+  return (
+    <div className="space-y-4 p-3 md:p-6">
+      <div className="flex items-center gap-4">
+        <Skeleton className="h-10 w-32" />
+        <Skeleton className="h-10 flex-1 max-w-xs" />
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-24 rounded-xl" />
+        ))}
+      </div>
+      <Skeleton className="h-64 rounded-xl" />
     </div>
   );
 }
@@ -65,7 +88,6 @@ const Index = () => {
 
   const { currentView, setCurrentView } = useCurrentView();
   const [searchQuery, setSearchQuery] = useState("");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Modals
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -74,6 +96,7 @@ const Index = () => {
   const [stockActionModalOpen, setStockActionModalOpen] = useState(false);
   const [stockActionType, setStockActionType] = useState<"giris" | "cikis">("giris");
   const [pendingBarcode, setPendingBarcode] = useState<string | undefined>();
+  const [scanModalOpen, setScanModalOpen] = useState(false);
 
   const lowStockCount = products.filter((p) => p.mevcutStok < p.minStok).length;
 
@@ -119,7 +142,6 @@ const Index = () => {
       shelfId,
     });
 
-    // Refresh products to get updated stock
     refreshProducts();
   };
 
@@ -193,61 +215,33 @@ const Index = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Veriler yükleniyor...</p>
+      <div className="min-h-screen bg-background">
+        <div className="hidden lg:block">
+          <Sidebar currentView={currentView} onViewChange={setCurrentView} alertCount={0} />
         </div>
+        <div className="lg:ml-64">
+          <SkeletonLoader />
+        </div>
+        <MobileBottomNav onScanPress={() => {}} />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Mobile Sidebar */}
-      <div
-        className={cn(
-          "fixed inset-0 z-50 lg:hidden transition-opacity duration-300",
-          mobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
-        )}
-      >
-        <div className="absolute inset-0 bg-foreground/20 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-        <div
-          className={cn(
-            "relative h-full w-64 transition-transform duration-300",
-            mobileMenuOpen ? "translate-x-0" : "-translate-x-full",
-          )}
-        >
-          <Sidebar
-            currentView={currentView}
-            onViewChange={(view) => {
-              setCurrentView(view);
-              setMobileMenuOpen(false);
-            }}
-            alertCount={lowStockCount}
-          />
-          <button
-            onClick={() => setMobileMenuOpen(false)}
-            className="absolute top-4 right-4 p-2 rounded-lg bg-sidebar-accent text-sidebar-foreground"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Desktop Sidebar */}
+      {/* Desktop Sidebar only */}
       <div className="hidden lg:block">
         <Sidebar currentView={currentView} onViewChange={setCurrentView} alertCount={lowStockCount} />
       </div>
 
       {/* Main Content */}
-      <div className="lg:ml-64 pb-[env(safe-area-inset-bottom)] px-2 sm:px-4">
+      <div className="lg:ml-64 pb-24 lg:pb-0 px-2 sm:px-4">
         <Header
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           onAddProduct={handleAddProduct}
           alertCount={lowStockCount}
-          onMobileMenuToggle={() => setMobileMenuOpen(true)}
+          onMobileMenuToggle={() => {}}
           products={products}
           onProductFound={handleScanProductFound}
           onBarcodeNotFound={handleScanBarcodeNotFound}
@@ -255,26 +249,25 @@ const Index = () => {
         />
 
         <main className="p-3 md:p-6 pb-safe">
-          {/* Page Title with Sign Out - Hidden on dashboard to avoid duplication */}
+          {/* Page Title - desktop shows sign out, mobile hides it (available in Profile) */}
           {currentView !== "dashboard" && (
             <div className="mb-4 md:mb-6 flex items-center justify-between">
               <div>
                 <h1 className="text-lg md:text-2xl font-bold text-foreground">{viewTitles[currentView]}</h1>
-                <p className="text-xs md:text-sm text-muted-foreground mt-0.5">{user?.email}</p>
+                <p className="text-xs md:text-sm text-muted-foreground mt-0.5 hidden lg:block">{user?.email}</p>
               </div>
-              <Button variant="outline" size="sm" onClick={handleSignOut} className="h-8 md:h-9 text-xs md:text-sm">
+              <Button variant="outline" size="sm" onClick={handleSignOut} className="h-8 md:h-9 text-xs md:text-sm hidden lg:flex">
                 <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5" />
-                <span className="hidden sm:inline">Çıkış</span>
+                Çıkış
               </Button>
             </div>
           )}
 
-          {/* Dashboard has its own header, just show sign out */}
           {currentView === "dashboard" && (
-            <div className="flex justify-end mb-3 md:mb-4">
+            <div className="hidden lg:flex justify-end mb-3 md:mb-4">
               <Button variant="outline" size="sm" onClick={handleSignOut} className="h-8 md:h-9 text-xs md:text-sm">
                 <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5" />
-                <span className="hidden sm:inline">Çıkış</span>
+                Çıkış
               </Button>
             </div>
           )}
@@ -387,6 +380,22 @@ const Index = () => {
         </main>
       </div>
 
+      {/* Mobile Bottom Nav */}
+      <MobileBottomNav onScanPress={() => setScanModalOpen(true)} />
+
+      {/* Scan Session Modal (lazy) */}
+      {scanModalOpen && (
+        <Suspense fallback={null}>
+          <ScanSessionModal
+            isOpen={scanModalOpen}
+            onClose={() => setScanModalOpen(false)}
+            products={products}
+            initialMode="in"
+            onStockUpdated={refreshProducts}
+          />
+        </Suspense>
+      )}
+
       {/* Modals */}
       <ProductModal
         isOpen={productModalOpen}
@@ -413,7 +422,7 @@ const Index = () => {
         product={selectedProduct}
         actionType={stockActionType}
       />
-      {/* Product Intelligence Drawer */}
+
       <ProductIntelligenceDrawer
         product={detailDrawerProduct}
         open={!!detailDrawerProduct}

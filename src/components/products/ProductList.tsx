@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Package, MapPin, AlertTriangle, ArrowUpDown, Download } from 'lucide-react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { Package, MapPin, AlertTriangle, ArrowUpDown, Download, Plus, Minus } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Product } from '@/types/stock';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,9 @@ import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/usePermissions';
 import { BulkActions } from './BulkActions';
 import { CategoryFilter, getCategoryColor } from './CategoryFilter';
+import { useSwipeGesture } from '@/hooks/useSwipeGesture';
+import { useHaptics } from '@/hooks/useHaptics';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ProductListProps {
   products: Product[];
@@ -165,6 +168,8 @@ export function ProductList({
     setSelectedIds(new Set());
   };
 
+  const isMobile = useIsMobile();
+
   return (
     <div className="animate-slide-up space-y-3">
       {/* Category Filter */}
@@ -316,85 +321,20 @@ export function ProductList({
         </div>
       </div>
 
-      {/* Mobile Cards */}
-      <div className="md:hidden space-y-3">
+      {/* Mobile Cards with Swipe Gestures */}
+      <div className="md:hidden space-y-2">
         {visibleProducts.map((product, index) => {
-          const isLowStock = product.mevcutStok < product.minStok;
           const delay = index < 20 ? index * 30 : 0;
-          const isSelected = selectedIds.has(product.id);
-          const category = (product as any).category;
           return (
-            <div 
-              key={product.id} 
-              className={cn(
-                "stat-card animate-slide-up cursor-pointer transition-colors hover:bg-accent/30 active:bg-accent/50",
-                isSelected && "ring-2 ring-primary/30"
-              )}
-              style={delay ? { animationDelay: `${delay}ms` } : undefined}
-              onClick={() => onViewProduct(product.id)}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => toggleSelect(product.id)}
-                    />
-                  </div>
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Package className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-foreground">{product.urunAdi}</h3>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm text-muted-foreground font-mono">{product.urunKodu}</p>
-                      {category && (
-                        <span className={cn(
-                          'inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium border',
-                          getCategoryColor(category)
-                        )}>
-                          {category}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                {isLowStock ? (
-                  <span className="badge-status bg-destructive/10 text-destructive">
-                    <AlertTriangle className="w-3 h-3 mr-1" />
-                    Düşük
-                  </span>
-                ) : (
-                  <span className="badge-status bg-success/10 text-success text-xs">
-                    Normal
-                  </span>
-                )}
-              </div>
-              
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="w-4 h-4" />
-                  <span>{product.rafKonum}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <span className={cn(
-                      'font-semibold text-lg',
-                      isLowStock ? 'text-destructive' : 'text-foreground'
-                    )}>
-                      {product.mevcutStok}
-                    </span>
-                    <span className="text-muted-foreground ml-1">/ {product.minStok}</span>
-                  </div>
-                  {(product.setStok || 0) > 0 && (
-                    <div className="text-right border-l pl-3 border-border">
-                      <span className="text-sm text-muted-foreground">Set: </span>
-                      <span className="font-medium">{product.setStok}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            <SwipeableProductCard
+              key={product.id}
+              product={product}
+              isSelected={selectedIds.has(product.id)}
+              delay={delay}
+              onView={() => onViewProduct(product.id)}
+              onToggleSelect={() => toggleSelect(product.id)}
+              onStockAction={onStockAction}
+            />
           );
         })}
       </div>
@@ -423,6 +363,148 @@ export function ProductList({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Swipeable mobile product card
+function SwipeableProductCard({
+  product,
+  isSelected,
+  delay,
+  onView,
+  onToggleSelect,
+  onStockAction,
+}: {
+  product: Product;
+  isSelected: boolean;
+  delay: number;
+  onView: () => void;
+  onToggleSelect: () => void;
+  onStockAction: (product: Product, type: 'giris' | 'cikis') => void;
+}) {
+  const { lightHaptic } = useHaptics();
+  const isLowStock = product.mevcutStok < product.minStok;
+  const category = (product as any).category;
+
+  const { swipeOffset, onTouchStart, onTouchMove, onTouchEnd } = useSwipeGesture({
+    threshold: 80,
+    onSwipeRight: () => {
+      lightHaptic();
+      onStockAction(product, 'giris');
+    },
+    onSwipeLeft: () => {
+      lightHaptic();
+      onStockAction(product, 'cikis');
+    },
+    onLongPress: () => {
+      lightHaptic();
+      onStockAction(product, 'giris');
+    },
+  });
+
+  return (
+    <div className="relative overflow-hidden rounded-xl">
+      {/* Swipe reveal backgrounds */}
+      <div className="absolute inset-0 flex">
+        <div className={cn(
+          'flex-1 flex items-center justify-start pl-6 bg-success/20 transition-opacity',
+          swipeOffset > 20 ? 'opacity-100' : 'opacity-0'
+        )}>
+          <div className="w-10 h-10 rounded-full bg-success/30 flex items-center justify-center">
+            <Plus className="w-5 h-5 text-success" />
+          </div>
+          <span className="ml-2 text-sm font-medium text-success">Giriş</span>
+        </div>
+        <div className={cn(
+          'flex-1 flex items-center justify-end pr-6 bg-destructive/20 transition-opacity',
+          swipeOffset < -20 ? 'opacity-100' : 'opacity-0'
+        )}>
+          <span className="mr-2 text-sm font-medium text-destructive">Çıkış</span>
+          <div className="w-10 h-10 rounded-full bg-destructive/30 flex items-center justify-center">
+            <Minus className="w-5 h-5 text-destructive" />
+          </div>
+        </div>
+      </div>
+
+      {/* Card */}
+      <div
+        className={cn(
+          "stat-card relative z-10 cursor-pointer transition-colors active:bg-accent/50 touch-feedback",
+          isSelected && "ring-2 ring-primary/30"
+        )}
+        style={{
+          transform: `translateX(${swipeOffset}px)`,
+          transition: swipeOffset === 0 ? 'transform 0.3s ease' : 'none',
+          ...(delay ? { animationDelay: `${delay}ms` } : {}),
+        }}
+        onClick={onView}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div onClick={(e) => e.stopPropagation()}>
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={onToggleSelect}
+              />
+            </div>
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Package className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-medium text-foreground">{product.urunAdi}</h3>
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-muted-foreground font-mono">{product.urunKodu}</p>
+                {category && (
+                  <span className={cn(
+                    'inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium border',
+                    getCategoryColor(category)
+                  )}>
+                    {category}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          {isLowStock ? (
+            <span className="badge-status bg-destructive/10 text-destructive">
+              <AlertTriangle className="w-3 h-3 mr-1" />
+              Düşük
+            </span>
+          ) : (
+            <span className="badge-status bg-success/10 text-success text-xs">
+              Normal
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <MapPin className="w-4 h-4" />
+            <span>{product.rafKonum}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <span className={cn(
+                'font-semibold text-lg',
+                isLowStock ? 'text-destructive' : 'text-foreground'
+              )}>
+                {product.mevcutStok}
+              </span>
+              <span className="text-muted-foreground ml-1">/ {product.minStok}</span>
+            </div>
+            {(product.setStok || 0) > 0 && (
+              <div className="text-right border-l pl-3 border-border">
+                <span className="text-sm text-muted-foreground">Set: </span>
+                <span className="font-medium">{product.setStok}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

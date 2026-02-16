@@ -290,6 +290,34 @@
     user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
+
+  /* Mobile: prevent accidental text selection on app shell */
+  @media (max-width: 768px) {
+    body {
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* Allow text selection in inputs and textareas */
+    input, textarea, [contenteditable="true"] {
+      -webkit-user-select: text;
+      user-select: text;
+    }
+
+    /* Reduce heavy shadows on mobile for 60fps scrolling */
+    .stat-card, .stat-card-enhanced {
+      box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04) !important;
+    }
+    .stat-card:hover, .stat-card-enhanced:hover {
+      transform: none !important;
+      box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04) !important;
+    }
+  }
+
+  /* Bottom nav safe area utility */
+  .bottom-nav-safe {
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
 }
 
 @keyframes fadeIn {

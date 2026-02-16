@@ -46,10 +46,10 @@ export function Header({
   return (
     <header className="sticky top-0 z-30 bg-card/80 backdrop-blur-lg border-b border-border safe-area-top">
       <div className="flex items-center justify-between px-3 md:px-6 h-14 md:h-16">
-        {/* Mobile Menu Button */}
+        {/* Mobile Menu Button - hidden on mobile since bottom nav replaces it */}
         <button
           onClick={onMobileMenuToggle}
-          className="lg:hidden p-2 -ml-1 rounded-lg hover:bg-muted transition-colors flex-shrink-0"
+          className="hidden lg:hidden p-2 -ml-1 rounded-lg hover:bg-muted transition-colors flex-shrink-0"
         >
           <Menu className="w-5 h-5 text-foreground" />
         </button>
