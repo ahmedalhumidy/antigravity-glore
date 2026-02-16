@@ -13,9 +13,10 @@ import { useNavigate } from 'react-router-dom';
 
 interface QuickCreateMenuProps {
   onAddProduct: () => void;
+  onOpenTransfer?: () => void;
 }
 
-export function QuickCreateMenu({ onAddProduct }: QuickCreateMenuProps) {
+export function QuickCreateMenu({ onAddProduct, onOpenTransfer }: QuickCreateMenuProps) {
   const { hasPermission } = usePermissions();
   const navigate = useNavigate();
 
@@ -39,9 +40,9 @@ export function QuickCreateMenu({ onAddProduct }: QuickCreateMenuProps) {
       perm: 'stock_movements.create' as const,
     },
     {
-      label: 'Transfer',
+      label: 'Raf Transferi',
       icon: RefreshCw,
-      action: () => navigate('/movements'),
+      action: () => { if (onOpenTransfer) onOpenTransfer(); else navigate('/movements'); },
       perm: 'stock_movements.create' as const,
     },
     {
