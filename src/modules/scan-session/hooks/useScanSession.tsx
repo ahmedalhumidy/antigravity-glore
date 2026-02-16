@@ -187,7 +187,7 @@ export function useScanSession({ products, onComplete }: UseScanSessionOptions) 
 
       // Check if already in queue
       const existingIndex = prev.queue.findIndex(
-        q => q.barcode === barcode && q.status === 'pending'
+        q => q.barcode === barcode && (q.status === 'pending' || q.status === 'not_found')
       );
 
       if (existingIndex >= 0) {
