@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { Header } from "@/components/layout/Header";
+import { SmartTopBar } from "@/components/layout/SmartTopBar";
+import { TransferShelfModal } from "@/components/movements/TransferShelfModal";
 import { Dashboard } from "@/components/dashboard/Dashboard";
 import { ProductList } from "@/components/products/ProductList";
 import { ProductModal } from "@/components/products/ProductModal";
@@ -99,6 +100,7 @@ const Index = () => {
   const [pendingBarcode, setPendingBarcode] = useState<string | undefined>();
   const [scanModalOpen, setScanModalOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
 
   const lowStockCount = products.filter((p) => p.mevcutStok < p.minStok).length;
 
@@ -239,16 +241,16 @@ const Index = () => {
 
       {/* Main Content */}
       <div className="lg:ml-64 pb-24 lg:pb-0 px-2 sm:px-4">
-        <Header
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onAddProduct={handleAddProduct}
-          alertCount={lowStockCount}
-          onMobileMenuToggle={() => {}}
+        <SmartTopBar
           products={products}
+          onAddProduct={handleAddProduct}
           onProductFound={handleScanProductFound}
           onBarcodeNotFound={handleScanBarcodeNotFound}
+          onStockAction={handleStockAction}
+          onViewProduct={handleViewProduct}
           onStockUpdated={refreshProducts}
+          onOpenScan={() => setScanModalOpen(true)}
+          onOpenTransfer={() => setShowTransfer(true)}
         />
 
         <main className="p-3 md:p-6 pb-safe">
@@ -437,6 +439,13 @@ const Index = () => {
         onSave={async (p) => { await updateProduct(p); }}
         onDelete={async (id) => { await deleteProduct(id); }}
         onStockAction={(p, type) => { setDetailDrawerProduct(null); handleStockAction(p, type); }}
+        products={products}
+        onTransferred={refreshProducts}
+      />
+
+      <TransferShelfModal
+        isOpen={showTransfer}
+        onClose={() => setShowTransfer(false)}
         products={products}
         onTransferred={refreshProducts}
       />
