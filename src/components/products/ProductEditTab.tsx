@@ -164,7 +164,7 @@ export function ProductEditTab({ product, onSave, onDelete, onSaved, onDeleted }
               onChange={(e) => setFormData(prev => ({ ...prev, urunKodu: e.target.value }))}
               placeholder="Örn: 85426"
               required
-              className="h-9"
+              className="h-11 sm:h-9 rounded-lg"
             />
           </div>
           <div className="space-y-1.5">
@@ -174,7 +174,7 @@ export function ProductEditTab({ product, onSave, onDelete, onSaved, onDeleted }
               value={formData.barkod}
               onChange={(e) => setFormData(prev => ({ ...prev, barkod: e.target.value }))}
               placeholder="Opsiyonel"
-              className="h-9"
+              className="h-11 sm:h-9 rounded-lg"
             />
           </div>
         </div>
@@ -201,7 +201,7 @@ export function ProductEditTab({ product, onSave, onDelete, onSaved, onDeleted }
             onChange={(e) => setFormData(prev => ({ ...prev, urunAdi: e.target.value.slice(0, 200) }))}
             placeholder="Ürün adını girin"
             required
-            className="h-9"
+            className="h-11 sm:h-9 rounded-lg"
           />
         </div>
 
@@ -212,7 +212,7 @@ export function ProductEditTab({ product, onSave, onDelete, onSaved, onDeleted }
             value={formData.category}
             onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
             placeholder="Opsiyonel kategori"
-            className="h-9"
+            className="h-11 sm:h-9 rounded-lg"
           />
         </div>
       </section>
@@ -254,12 +254,12 @@ export function ProductEditTab({ product, onSave, onDelete, onSaved, onDeleted }
               min="0"
               value={formData.minStok}
               onChange={(e) => setFormData(prev => ({ ...prev, minStok: parseInt(e.target.value) || 0 }))}
-              className="h-9"
+              className="h-11 sm:h-9 rounded-lg"
             />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Mevcut Stok</Label>
-            <div className="h-9 flex items-center px-3 rounded-md bg-muted/50 text-sm font-medium">
+            <div className="h-11 sm:h-9 flex items-center px-3 rounded-lg bg-muted/50 text-sm font-medium">
               {product.mevcutStok} adet / {product.setStok} set
             </div>
           </div>
@@ -325,11 +325,11 @@ export function ProductEditTab({ product, onSave, onDelete, onSaved, onDeleted }
       )}
 
       {/* Save Button */}
-      <div className="sticky bottom-0 bg-background pt-3 pb-1 border-t border-border -mx-4 px-4">
+      <div className="sticky bottom-0 bg-background pt-3 pb-1 border-t border-border -mx-3 sm:-mx-4 px-3 sm:px-4">
         <Button
           onClick={handleSave}
           disabled={!hasChanges || saving}
-          className="w-full h-10"
+          className="w-full h-12 sm:h-10 rounded-xl sm:rounded-lg text-sm active:scale-[0.98] transition-transform"
         >
           {saving ? (
             <div className="animate-spin rounded-full h-4 w-4 border-2 border-background border-t-transparent mr-2" />

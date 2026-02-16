@@ -272,6 +272,24 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Native touch feedback */
+  .touch-feedback {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Overscroll containment for nested scrolls */
+  .overscroll-contain {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent text selection on interactive elements */
+  button, [role="button"], [role="tab"] {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 @keyframes fadeIn {
