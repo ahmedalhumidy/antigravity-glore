@@ -2,7 +2,9 @@ import { MapPin, Package, AlertTriangle, Edit2, Trash2 } from 'lucide-react';
 import { Product } from '@/types/stock';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { Shelf } from '@/hooks/useShelves';
+import { Badge } from '@/components/ui/badge';
 
 interface LocationCardProps {
   location: string;
@@ -29,6 +31,14 @@ export function LocationCard({
   const totalSetStock = products.reduce((sum, p) => sum + p.setStok, 0);
   const lowStockCount = products.filter(p => p.mevcutStok < p.minStok).length;
 
+  const capacity = (shelf as any)?.capacity as number | null;
+  const zone = (shelf as any)?.zone as string | null;
+  const fillPercent = capacity && capacity > 0 ? Math.min(100, Math.round((products.length / capacity) * 100)) : null;
+
+  const fillColor = fillPercent !== null
+    ? fillPercent >= 90 ? 'text-destructive' : fillPercent >= 70 ? 'text-warning' : 'text-success'
+    : '';
+
   return (
     <div className="stat-card">
       <div className="flex items-center justify-between mb-4">
@@ -37,9 +47,17 @@ export function LocationCard({
             <MapPin className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h3 className="font-semibold text-foreground">{location}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-foreground">{location}</h3>
+              {zone && (
+                <Badge variant="outline" className="text-[10px] h-5 font-normal">
+                  {zone}
+                </Badge>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
               {products.length} ürün
+              {capacity && <span className="ml-1">/ {capacity} kapasite</span>}
             </p>
           </div>
         </div>
@@ -72,6 +90,17 @@ export function LocationCard({
           )}
         </div>
       </div>
+
+      {/* Capacity bar */}
+      {fillPercent !== null && (
+        <div className="mb-3">
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="text-muted-foreground">Doluluk</span>
+            <span className={cn('font-medium', fillColor)}>{fillPercent}%</span>
+          </div>
+          <Progress value={fillPercent} className="h-1.5" />
+        </div>
+      )}
 
       {products.length > 0 ? (
         <div className="space-y-2 max-h-48 overflow-y-auto">

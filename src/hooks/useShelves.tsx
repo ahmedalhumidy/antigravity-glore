@@ -6,6 +6,8 @@ export interface Shelf {
   id: string;
   name: string;
   description?: string;
+  capacity?: number | null;
+  zone?: string | null;
   created_at: string;
 }
 

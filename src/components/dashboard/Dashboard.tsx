@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Package, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, Users, Activity, Plus, ArrowLeftRight } from 'lucide-react';
+import { Package, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, Users, Activity, Plus, ArrowLeftRight, Repeat } from 'lucide-react';
 import { StatCard } from './StatCard';
 import { RecentMovements } from './RecentMovements';
 import { LowStockList } from './LowStockList';
@@ -40,6 +40,58 @@ export function Dashboard({ products, movements, onViewProduct }: DashboardProps
   const todayOut = todayMovements.filter(m => m.type === 'cikis').reduce((sum, m) => sum + m.quantity, 0);
   const yesterdayIn = yesterdayMovements.filter(m => m.type === 'giris').reduce((sum, m) => sum + m.quantity, 0);
   const yesterdayOut = yesterdayMovements.filter(m => m.type === 'cikis').reduce((sum, m) => sum + m.quantity, 0);
+
+  // 7-day sparkline data
+  const sparkline7d = useMemo(() => {
+    const now = new Date();
+    const days: number[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const count = movements.filter(m => m.date === dateStr).length;
+      days.push(count);
+    }
+    return days;
+  }, [movements]);
+
+  const sparklineIn7d = useMemo(() => {
+    const now = new Date();
+    const days: number[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const qty = movements.filter(m => m.date === dateStr && m.type === 'giris').reduce((s, m) => s + m.quantity, 0);
+      days.push(qty);
+    }
+    return days;
+  }, [movements]);
+
+  const sparklineOut7d = useMemo(() => {
+    const now = new Date();
+    const days: number[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const qty = movements.filter(m => m.date === dateStr && m.type === 'cikis').reduce((s, m) => s + m.quantity, 0);
+      days.push(qty);
+    }
+    return days;
+  }, [movements]);
+
+  // Avg daily movements (last 7 days)
+  const avgDailyMovements = useMemo(() => {
+    const total = sparkline7d.reduce((s, v) => s + v, 0);
+    return Math.round(total / 7 * 10) / 10;
+  }, [sparkline7d]);
+
+  // Stock turnover rate
+  const turnoverRate = useMemo(() => {
+    if (totalStock === 0) return 0;
+    return Math.round((totalOut / totalStock) * 100) / 100;
+  }, [totalOut, totalStock]);
 
   // Chart data based on period
   const chartData = useMemo(() => {
@@ -126,7 +178,7 @@ export function Dashboard({ products, movements, onViewProduct }: DashboardProps
       </div>
 
       {/* Stats Grid - Responsive: 2 cols on mobile, 3 on tablet, 6 on desktop */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
         <StatCard
           title="Toplam Ürün"
           value={totalProducts}
@@ -147,6 +199,7 @@ export function Dashboard({ products, movements, onViewProduct }: DashboardProps
           icon={ArrowUpRight}
           variant="success"
           comparison={{ current: todayIn, previous: yesterdayIn }}
+          sparklineData={sparklineIn7d}
           compact
         />
         <StatCard
@@ -155,6 +208,7 @@ export function Dashboard({ products, movements, onViewProduct }: DashboardProps
           icon={ArrowDownRight}
           variant="warning"
           comparison={{ current: todayOut, previous: yesterdayOut }}
+          sparklineData={sparklineOut7d}
           compact
         />
         <StatCard
@@ -162,6 +216,7 @@ export function Dashboard({ products, movements, onViewProduct }: DashboardProps
           value={todayMovements.length}
           icon={Activity}
           comparison={{ current: todayMovements.length, previous: yesterdayMovements.length }}
+          sparklineData={sparkline7d}
           compact
         />
         <StatCard
@@ -169,6 +224,18 @@ export function Dashboard({ products, movements, onViewProduct }: DashboardProps
           value={lowStockCount}
           icon={AlertTriangle}
           variant={lowStockCount > 0 ? 'destructive' : 'default'}
+          compact
+        />
+        <StatCard
+          title="Ort. Günlük"
+          value={avgDailyMovements}
+          icon={Repeat}
+          compact
+        />
+        <StatCard
+          title="Devir Hızı"
+          value={turnoverRate}
+          icon={TrendingUp}
           compact
         />
       </div>

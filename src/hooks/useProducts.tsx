@@ -52,6 +52,7 @@ export function useProducts() {
         uyari: p.uyari,
         sonIslemTarihi: p.son_islem_tarihi || undefined,
         not: p.notes || undefined,
+        category: p.category || undefined,
       }));
 
       setProducts(mappedProducts);
