@@ -11,6 +11,7 @@ import { SystemSettingsProvider } from "@/hooks/useSystemSettings";
 import { PWAUpdateNotification } from "@/components/pwa/PWAUpdateNotification";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { QuoteCartProvider } from "@/modules/magaza/context/QuoteCartContext";
+import { ThemeProvider } from "next-themes";
 
 // Lazy load pages
 const Index = lazy(() => import("./pages/Index"));
@@ -164,25 +165,27 @@ const AppRoutes = () => (
 );
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-           <PermissionsProvider>
-            <FeatureFlagsProvider>
-              <SystemSettingsProvider>
-                  <AppRoutes />
-                  <PWAUpdateNotification />
-                  <OfflineIndicator />
-              </SystemSettingsProvider>
-            </FeatureFlagsProvider>
-           </PermissionsProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+             <PermissionsProvider>
+              <FeatureFlagsProvider>
+                <SystemSettingsProvider>
+                    <AppRoutes />
+                    <PWAUpdateNotification />
+                    <OfflineIndicator />
+                </SystemSettingsProvider>
+              </FeatureFlagsProvider>
+             </PermissionsProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;

@@ -8,6 +8,7 @@ import { QuickCreateMenu } from './QuickCreateMenu';
 import { ModuleSwitcher } from './ModuleSwitcher';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { SyncStatusChip } from './SyncStatusChip';
+import { ThemeToggle } from './ThemeToggle';
 import { TransferShelfModal } from '@/components/movements/TransferShelfModal';
 import { useNavigate } from 'react-router-dom';
 
@@ -81,6 +82,9 @@ export function Header({
             onBarcodeNotFound={onBarcodeNotFound}
             onNavigateToShelf={() => navigate('/locations')}
           />
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
 
           {/* Module Switcher */}
           <ModuleSwitcher />
