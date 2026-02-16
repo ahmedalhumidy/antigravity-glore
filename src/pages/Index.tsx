@@ -418,7 +418,8 @@ const Index = () => {
         product={detailDrawerProduct}
         open={!!detailDrawerProduct}
         onClose={() => setDetailDrawerProduct(null)}
-        onEdit={(p) => { setDetailDrawerProduct(null); handleEditProduct(p); }}
+        onSave={async (p) => { await updateProduct(p); }}
+        onDelete={async (id) => { await deleteProduct(id); }}
         onStockAction={(p, type) => { setDetailDrawerProduct(null); handleStockAction(p, type); }}
         products={products}
         onTransferred={refreshProducts}
