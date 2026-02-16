@@ -831,6 +831,51 @@ export type Database = {
         }
         Relationships: []
       }
+      production_units: {
+        Row: {
+          barcode: string
+          created_at: string
+          current_stage_id: string
+          id: string
+          last_move_at: string
+          product_id: string | null
+          status: string
+        }
+        Insert: {
+          barcode: string
+          created_at?: string
+          current_stage_id: string
+          id?: string
+          last_move_at?: string
+          product_id?: string | null
+          status?: string
+        }
+        Update: {
+          barcode?: string
+          created_at?: string
+          current_stage_id?: string
+          id?: string
+          last_move_at?: string
+          product_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_units_current_stage_id_fkey"
+            columns: ["current_stage_id"]
+            isOneToOne: false
+            referencedRelation: "production_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_units_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           acilis_stok: number
