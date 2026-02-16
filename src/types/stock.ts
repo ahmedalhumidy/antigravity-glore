@@ -40,7 +40,7 @@ export interface DashboardStats {
   totalOut: number;
 }
 
-export type ViewMode = 'dashboard' | 'products' | 'movements' | 'locations' | 'alerts' | 'users' | 'logs' | 'reports' | 'profile' | 'settings' | 'archive' | 'control-center' | 'admin-magaza' | 'admin-magaza-urunler' | 'admin-magaza-teklifler' | 'admin-magaza-kampanyalar' | 'admin-galeri';
+export type ViewMode = 'dashboard' | 'products' | 'movements' | 'locations' | 'alerts' | 'users' | 'logs' | 'reports' | 'profile' | 'settings' | 'archive' | 'control-center' | 'admin-magaza' | 'admin-magaza-urunler' | 'admin-magaza-teklifler' | 'admin-magaza-kampanyalar' | 'admin-galeri' | 'more';
 
 export type AppRole = 'admin' | 'manager' | 'staff' | 'viewer';
 

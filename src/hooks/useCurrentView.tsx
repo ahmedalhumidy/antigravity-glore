@@ -20,6 +20,7 @@ const viewRoutes: Record<ViewMode, string> = {
   'admin-magaza-teklifler': '/admin/magaza/teklifler',
   'admin-magaza-kampanyalar': '/admin/magaza/kampanyalar',
   'admin-galeri': '/admin/galeri',
+  more: '/more',
 };
 
 const routeToView: Record<string, ViewMode> = {
@@ -40,6 +41,7 @@ const routeToView: Record<string, ViewMode> = {
   '/admin/magaza/teklifler': 'admin-magaza-teklifler',
   '/admin/magaza/kampanyalar': 'admin-magaza-kampanyalar',
   '/admin/galeri': 'admin-galeri',
+  '/more': 'more',
 };
 
 export function useCurrentView() {
