@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Package, Plus, X } from 'lucide-react';
+import { useState } from 'react';
+import { Package, Plus, X, MapPin } from 'lucide-react';
 import { Product } from '@/types/stock';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,6 +9,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { QuickStockInput } from '@/components/stock/QuickStockInput';
+import { ShelfSelector } from '@/components/shelves/ShelfSelector';
+import { useShelves, Shelf } from '@/hooks/useShelves';
 
 interface BarcodeResultModalProps {
   isOpen: boolean;
@@ -27,6 +29,9 @@ export function BarcodeResultModal({
   onAddNewProduct,
   onStockUpdated,
 }: BarcodeResultModalProps) {
+  const { shelves, addShelf } = useShelves();
+  const [showShelfAdd, setShowShelfAdd] = useState(false);
+
   const handleAddNew = () => {
     if (barcode) {
       onAddNewProduct(barcode);
@@ -92,16 +97,38 @@ export function BarcodeResultModal({
           </p>
         </div>
 
-        <div className="flex gap-3">
-          <Button variant="outline" className="flex-1" onClick={onClose}>
-            <X className="w-4 h-4 mr-2" />
-            İptal
-          </Button>
-          <Button className="flex-1 gradient-accent border-0" onClick={handleAddNew}>
-            <Plus className="w-4 h-4 mr-2" />
-            Yeni Ürün Ekle
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={onClose}>
+              <X className="w-4 h-4 mr-2" />
+              İptal
+            </Button>
+            <Button className="flex-1 gradient-accent border-0" onClick={handleAddNew}>
+              <Plus className="w-4 h-4 mr-2" />
+              Yeni Ürün Ekle
+            </Button>
+          </div>
+          <Button
+            variant="outline"
+            className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10"
+            onClick={() => setShowShelfAdd(true)}
+          >
+            <MapPin className="w-4 h-4" />
+            Yeni Raf Ekle
           </Button>
         </div>
+
+        {showShelfAdd && (
+          <div className="pt-2">
+            <ShelfSelector
+              shelves={shelves}
+              onSelect={() => setShowShelfAdd(false)}
+              onAddNew={addShelf}
+              label="Yeni Raf Oluştur"
+              placeholder="Raf seçin veya yeni ekleyin..."
+            />
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
