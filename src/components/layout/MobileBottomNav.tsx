@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Package, ArrowLeftRight, Grid2X2, ScanLine } from 'lucide-react';
+import { LayoutDashboard, Package, ArrowLeftRight, Menu, ScanLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const tabs = [
@@ -7,14 +7,15 @@ const tabs = [
   { path: '/products', icon: Package, label: 'Ürünler' },
   { path: '__scan__', icon: ScanLine, label: 'Tara' },
   { path: '/movements', icon: ArrowLeftRight, label: 'Hareketler' },
-  { path: '/more', icon: Grid2X2, label: 'Daha Fazla' },
+  { path: '__menu__', icon: Menu, label: 'Menü' },
 ];
 
 interface MobileBottomNavProps {
   onScanPress: () => void;
+  onMenuPress: () => void;
 }
 
-export function MobileBottomNav({ onScanPress }: MobileBottomNavProps) {
+export function MobileBottomNav({ onScanPress, onMenuPress }: MobileBottomNavProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -36,6 +37,20 @@ export function MobileBottomNav({ onScanPress }: MobileBottomNavProps) {
                   <ScanLine className="w-7 h-7 text-accent-foreground" />
                 </div>
                 <span className="text-[10px] mt-0.5 text-accent font-medium">Tara</span>
+              </button>
+            );
+          }
+
+          if (tab.path === '__menu__') {
+            const Icon = tab.icon;
+            return (
+              <button
+                key="menu"
+                onClick={onMenuPress}
+                className="flex flex-col items-center justify-center flex-1 h-full pt-2 touch-feedback active:scale-95 transition-transform text-muted-foreground"
+              >
+                <Icon className="w-5 h-5" />
+                <span className="text-[10px] mt-1 font-normal">{tab.label}</span>
               </button>
             );
           }
