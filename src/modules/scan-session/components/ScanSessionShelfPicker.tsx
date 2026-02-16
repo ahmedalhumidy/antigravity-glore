@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MapPin, ScanBarcode } from 'lucide-react';
+import { MapPin, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -14,6 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useShelves } from '@/hooks/useShelves';
 
 interface ScanSessionShelfPickerProps {
@@ -23,13 +25,28 @@ interface ScanSessionShelfPickerProps {
 }
 
 export function ScanSessionShelfPicker({ isOpen, onClose, onSelectShelf }: ScanSessionShelfPickerProps) {
-  const { shelves, loading } = useShelves();
+  const { shelves, loading, addShelf } = useShelves();
   const [selected, setSelected] = useState<string>('');
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
 
   const handleConfirm = () => {
     const shelf = shelves.find(s => s.id === selected);
     if (shelf) {
       onSelectShelf(shelf.id, shelf.name);
+    }
+  };
+
+  const handleAddShelf = async () => {
+    if (!newName.trim()) return;
+    setIsAdding(true);
+    const newShelf = await addShelf(newName.trim());
+    setIsAdding(false);
+    if (newShelf) {
+      setSelected(newShelf.id);
+      setNewName('');
+      setShowAdd(false);
     }
   };
 
@@ -60,6 +77,46 @@ export function ScanSessionShelfPicker({ isOpen, onClose, onSelectShelf }: ScanS
               ))}
             </SelectContent>
           </Select>
+
+          {showAdd ? (
+            <div className="space-y-2 p-3 rounded-lg border bg-muted/30">
+              <Label htmlFor="newShelfName">Yeni Raf Adı *</Label>
+              <Input
+                id="newShelfName"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Örn: A-1, B-2(1)"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => { setShowAdd(false); setNewName(''); }}
+                >
+                  İptal
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1"
+                  onClick={handleAddShelf}
+                  disabled={!newName.trim() || isAdding}
+                >
+                  {isAdding ? 'Ekleniyor...' : 'Ekle'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10"
+              onClick={() => setShowAdd(true)}
+            >
+              <Plus className="w-4 h-4" />
+              Yeni Raf Ekle
+            </Button>
+          )}
 
           <div className="flex gap-2">
             <Button variant="outline" className="flex-1" onClick={onClose}>
