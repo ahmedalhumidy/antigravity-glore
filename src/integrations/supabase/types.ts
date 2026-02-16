@@ -1200,27 +1200,68 @@ export type Database = {
         }
         Relationships: []
       }
+      scan_logs: {
+        Row: {
+          barcode: string
+          id: string
+          product_id: string | null
+          result: string
+          scanned_at: string
+          user_id: string | null
+        }
+        Insert: {
+          barcode: string
+          id?: string
+          product_id?: string | null
+          result?: string
+          scanned_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          barcode?: string
+          id?: string
+          product_id?: string | null
+          result?: string
+          scanned_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_logs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shelves: {
         Row: {
+          capacity: number | null
           created_at: string
           description: string | null
           id: string
           name: string
           updated_at: string
+          zone: string | null
         }
         Insert: {
+          capacity?: number | null
           created_at?: string
           description?: string | null
           id?: string
           name: string
           updated_at?: string
+          zone?: string | null
         }
         Update: {
+          capacity?: number | null
           created_at?: string
           description?: string | null
           id?: string
           name?: string
           updated_at?: string
+          zone?: string | null
         }
         Relationships: []
       }

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Package, MapPin, AlertTriangle, MoreHorizontal, Edit2, Trash2, ArrowUpDown, Eye, Download } from 'lucide-react';
+import { Package, MapPin, AlertTriangle, MoreHorizontal, Edit2, Trash2, ArrowUpDown, Eye, Download, Printer, Tag } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Product } from '@/types/stock';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +12,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/usePermissions';
+import { BulkActions } from './BulkActions';
+import { CategoryFilter, getCategoryColor } from './CategoryFilter';
+import { printBarcodeLabels } from './BarcodeLabel';
 
 interface ProductListProps {
   products: Product[];
@@ -39,20 +43,36 @@ export function ProductList({
 
   const [sortField, setSortField] = useState<SortField>('urunAdi');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // Safari'de çok büyük listeler sayfayı çökertmesin diye (özellikle mobilde)
-  // ürünleri parça parça render ediyoruz.
   const PAGE_SIZE = 50;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
+  // Extract unique categories
+  const categories = useMemo(() => {
+    const cats = new Set<string>();
+    products.forEach(p => {
+      // products may have category from DB (mapped in useProducts or available via extra field)
+      // For now we derive from rafKonum prefix or use a dedicated field if available
+      const cat = (p as any).category;
+      if (cat) cats.add(cat);
+    });
+    return Array.from(cats).sort((a, b) => a.localeCompare(b, 'tr'));
+  }, [products]);
+
   const filteredProducts = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    return products.filter((product) => (
-      product.urunAdi.toLowerCase().includes(query) ||
-      product.urunKodu.toLowerCase().includes(query) ||
-      product.rafKonum.toLowerCase().includes(query)
-    ));
-  }, [products, searchQuery]);
+    return products.filter((product) => {
+      const matchesSearch = product.urunAdi.toLowerCase().includes(query) ||
+        product.urunKodu.toLowerCase().includes(query) ||
+        product.rafKonum.toLowerCase().includes(query);
+      
+      const matchesCategory = !selectedCategory || (product as any).category === selectedCategory;
+      
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, searchQuery, selectedCategory]);
 
   const sortedProducts = useMemo(() => {
     return [...filteredProducts].sort((a, b) => {
@@ -71,10 +91,19 @@ export function ProductList({
     [sortedProducts, visibleCount]
   );
 
-  // Filtre/sıralama değişince sayfalamayı başa al
+  const selectedProducts = useMemo(
+    () => products.filter(p => selectedIds.has(p.id)),
+    [products, selectedIds]
+  );
+
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [searchQuery, sortField, sortOrder, PAGE_SIZE]);
+  }, [searchQuery, sortField, sortOrder, selectedCategory, PAGE_SIZE]);
+
+  // Clear selection when products change
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [products]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -82,6 +111,23 @@ export function ProductList({
     } else {
       setSortField(field);
       setSortOrder('asc');
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === visibleProducts.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(visibleProducts.map(p => p.id)));
     }
   };
 
@@ -126,21 +172,55 @@ export function ProductList({
     XLSX.writeFile(wb, `urunler-${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
+  const handleBulkDelete = (ids: string[]) => {
+    ids.forEach(id => onDeleteProduct(id));
+    setSelectedIds(new Set());
+  };
+
   return (
-    <div className="animate-slide-up">
-      {/* Export Button */}
-      <div className="flex justify-end mb-3">
-        <Button variant="outline" size="sm" onClick={handleExportProducts}>
-          <Download className="w-4 h-4 mr-2" />
-          Excel İndir
-        </Button>
+    <div className="animate-slide-up space-y-3">
+      {/* Category Filter */}
+      {categories.length > 0 && (
+        <CategoryFilter
+          categories={categories}
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
+        />
+      )}
+
+      {/* Bulk Actions */}
+      <BulkActions
+        selectedProducts={selectedProducts}
+        onClearSelection={() => setSelectedIds(new Set())}
+        onBulkDelete={canDeleteProducts ? handleBulkDelete : undefined}
+      />
+
+      {/* Action Bar */}
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          {filteredProducts.length} ürün
+          {selectedCategory && <span className="ml-1">({selectedCategory})</span>}
+        </p>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportProducts}>
+            <Download className="w-4 h-4 mr-1.5" />
+            Excel
+          </Button>
+        </div>
       </div>
+
       {/* Desktop Table */}
       <div className="hidden md:block stat-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
+                <th className="py-4 px-3 w-10">
+                  <Checkbox
+                    checked={visibleProducts.length > 0 && selectedIds.size === visibleProducts.length}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">
                   <SortButton field="urunKodu" label="Ürün Kodu" />
                 </th>
@@ -167,13 +247,24 @@ export function ProductList({
             <tbody>
               {visibleProducts.map((product, index) => {
                 const isLowStock = product.mevcutStok < product.minStok;
-                 const delay = index < 20 ? index * 20 : 0;
+                const delay = index < 20 ? index * 20 : 0;
+                const isSelected = selectedIds.has(product.id);
+                const category = (product as any).category;
                 return (
                   <tr 
                     key={product.id} 
-                    className="table-row-hover border-b border-border last:border-0 animate-fade-in"
-                     style={delay ? { animationDelay: `${delay}ms` } : undefined}
+                    className={cn(
+                      "table-row-hover border-b border-border last:border-0 animate-fade-in",
+                      isSelected && "bg-primary/5"
+                    )}
+                    style={delay ? { animationDelay: `${delay}ms` } : undefined}
                   >
+                    <td className="py-4 px-3">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleSelect(product.id)}
+                      />
+                    </td>
                     <td className="py-4 px-4">
                       <span className="font-mono text-sm bg-muted px-2 py-1 rounded">
                         {product.urunKodu}
@@ -184,7 +275,17 @@ export function ProductList({
                         <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                           <Package className="w-4 h-4 text-primary" />
                         </div>
-                        <span className="font-medium text-foreground">{product.urunAdi}</span>
+                        <div>
+                          <span className="font-medium text-foreground">{product.urunAdi}</span>
+                          {category && (
+                            <span className={cn(
+                              'ml-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium border',
+                              getCategoryColor(category)
+                            )}>
+                              {category}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="py-4 px-4">
@@ -254,6 +355,10 @@ export function ProductList({
                               <Eye className="w-4 h-4 mr-2" />
                               Görüntüle
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => printBarcodeLabels([product])}>
+                              <Printer className="w-4 h-4 mr-2" />
+                              Barkod Yazdır
+                            </DropdownMenuItem>
                             {canEditProducts && (
                               <DropdownMenuItem onClick={() => onEditProduct(product)}>
                                 <Edit2 className="w-4 h-4 mr-2" />
@@ -286,20 +391,36 @@ export function ProductList({
         {visibleProducts.map((product, index) => {
           const isLowStock = product.mevcutStok < product.minStok;
           const delay = index < 20 ? index * 30 : 0;
+          const isSelected = selectedIds.has(product.id);
+          const category = (product as any).category;
           return (
             <div 
               key={product.id} 
-              className="stat-card animate-slide-up"
+              className={cn("stat-card animate-slide-up", isSelected && "ring-2 ring-primary/30")}
               style={delay ? { animationDelay: `${delay}ms` } : undefined}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => toggleSelect(product.id)}
+                  />
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Package className="w-5 h-5 text-primary" />
                   </div>
                   <div>
                     <h3 className="font-medium text-foreground">{product.urunAdi}</h3>
-                    <p className="text-sm text-muted-foreground font-mono">{product.urunKodu}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground font-mono">{product.urunKodu}</p>
+                      {category && (
+                        <span className={cn(
+                          'inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium border',
+                          getCategoryColor(category)
+                        )}>
+                          {category}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {isLowStock && (
@@ -363,6 +484,10 @@ export function ProductList({
                     <DropdownMenuItem onClick={() => onViewProduct(product.id)}>
                       <Eye className="w-4 h-4 mr-2" />
                       Görüntüle
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => printBarcodeLabels([product])}>
+                      <Printer className="w-4 h-4 mr-2" />
+                      Barkod Yazdır
                     </DropdownMenuItem>
                     {canEditProducts && (
                       <DropdownMenuItem onClick={() => onEditProduct(product)}>

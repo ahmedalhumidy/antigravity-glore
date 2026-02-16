@@ -1,5 +1,6 @@
 import { LucideIcon, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 
 interface StatCardProps {
   title: string;
@@ -14,6 +15,7 @@ interface StatCardProps {
     previous: number;
     label?: string;
   };
+  sparklineData?: number[];
   variant?: 'default' | 'primary' | 'accent' | 'success' | 'warning' | 'destructive';
   compact?: boolean;
 }
@@ -36,18 +38,27 @@ const iconBgStyles = {
   destructive: 'bg-white/15 text-white',
 };
 
+const sparklineColors = {
+  default: 'hsl(var(--primary))',
+  primary: 'rgba(255,255,255,0.8)',
+  accent: 'rgba(255,255,255,0.8)',
+  success: 'rgba(255,255,255,0.8)',
+  warning: 'rgba(255,255,255,0.8)',
+  destructive: 'rgba(255,255,255,0.8)',
+};
+
 export function StatCard({ 
   title, 
   value, 
   icon: Icon, 
   trend, 
   comparison,
+  sparklineData,
   variant = 'default',
   compact = false
 }: StatCardProps) {
   const isColored = variant !== 'default';
 
-  // Calculate comparison percentage
   const comparisonData = comparison ? (() => {
     const diff = comparison.current - comparison.previous;
     const percentage = comparison.previous > 0 
@@ -56,13 +67,35 @@ export function StatCard({
     return { diff, percentage, isPositive: diff >= 0 };
   })() : null;
 
+  const chartData = sparklineData?.map((v, i) => ({ v, i }));
+
   return (
     <div className={cn(
-      'stat-card-enhanced animate-fade-in border',
+      'stat-card-enhanced animate-fade-in border relative overflow-hidden',
       variantStyles[variant],
       compact && 'p-3 md:p-4'
     )}>
-      <div className="flex items-start justify-between gap-2 md:gap-3">
+      {/* Sparkline background */}
+      {chartData && chartData.length > 1 && (
+        <div className="absolute bottom-0 left-0 right-0 h-12 opacity-30">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+              <Area
+                type="monotone"
+                dataKey="v"
+                stroke={sparklineColors[variant]}
+                fill={sparklineColors[variant]}
+                fillOpacity={0.15}
+                strokeWidth={1.5}
+                dot={false}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      <div className="flex items-start justify-between gap-2 md:gap-3 relative z-10">
         <div className="flex-1 min-w-0 space-y-0.5 md:space-y-1">
           <p className={cn(
             'text-[10px] md:text-xs font-medium uppercase tracking-wide truncate',
@@ -77,7 +110,6 @@ export function StatCard({
             {value}
           </p>
           
-          {/* Trend indicator */}
           {trend && (
             <p className={cn(
               'text-xs flex items-center gap-1',
@@ -99,7 +131,6 @@ export function StatCard({
             </p>
           )}
 
-          {/* Comparison indicator (vs yesterday) */}
           {comparisonData && (
             <div className={cn(
               'flex items-center gap-1.5 text-xs',
@@ -124,7 +155,6 @@ export function StatCard({
           )}
         </div>
 
-        {/* Icon with subtle background circle */}
         <div className={cn(
           'flex-shrink-0 p-2 md:p-3 rounded-lg md:rounded-xl transition-transform duration-200',
           iconBgStyles[variant]

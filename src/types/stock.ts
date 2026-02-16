@@ -13,6 +13,7 @@ export interface Product {
   uyari: boolean;
   sonIslemTarihi?: string;
   not?: string;
+  category?: string;
 }
 
 export interface StockMovement {
