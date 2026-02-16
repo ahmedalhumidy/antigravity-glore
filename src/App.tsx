@@ -151,6 +151,14 @@ const AppRoutes = () => (
        <Route path="/admin/magaza/teklifler" element={<ProtectedRoute><Index /></ProtectedRoute>} />
        <Route path="/admin/magaza/kampanyalar" element={<ProtectedRoute><Index /></ProtectedRoute>} />
        <Route path="/admin/galeri" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+       <Route path="/uretim/baski" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+       <Route path="/uretim/kesim" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+       <Route path="/uretim/firinlar" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+       <Route path="/uretim/zimpara" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+       <Route path="/uretim/dekor" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+       <Route path="/uretim/tunel-firin" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+       <Route path="/uretim/paketleme" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+       <Route path="/uretim/dabo" element={<ProtectedRoute><Index /></ProtectedRoute>} />
        <Route path="/more" element={<ProtectedRoute><Index /></ProtectedRoute>} />
        {/* Public Magaza routes — shared layout */}
        <Route element={<QuoteCartProvider><StorefrontLayout /></QuoteCartProvider>}>
