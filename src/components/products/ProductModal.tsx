@@ -161,17 +161,7 @@ export function ProductModal({ isOpen, onClose, onSave, product, initialBarcode,
             required
           />
 
-          {/* Quick Stock Input for existing products */}
-          {product && (
-            <div className="border-t border-b border-border py-4 my-2">
-              <Label className="text-sm font-medium mb-2 block">Hızlı Stok Hareketi</Label>
-              <QuickStockInput 
-                product={product} 
-                onSuccess={onStockUpdated}
-                showShelfSelector={false}
-              />
-            </div>
-          )}
+          {/* Quick Stock Input removed — editing is now inline in the Intelligence Drawer */}
 
           {/* For new products, show initial stock inputs */}
           {!product && (

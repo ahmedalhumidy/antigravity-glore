@@ -7,9 +7,10 @@ import { ProductOverviewTab } from './ProductOverviewTab';
 import { ProductMovementsTab } from './ProductMovementsTab';
 import { ProductAnalyticsTab } from './ProductAnalyticsTab';
 import { ProductActivityTimeline } from './ProductActivityTimeline';
+import { ProductEditTab } from './ProductEditTab';
 import { printBarcodeLabels } from './BarcodeLabel';
 import { TransferShelfModal } from '@/components/movements/TransferShelfModal';
-import { ArrowUpRight, ArrowDownRight, Printer, Edit2, X, BarChart3, Clock, Eye, Activity, RefreshCw } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Printer, X, BarChart3, Clock, Eye, Activity, RefreshCw, Pencil } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subDays } from 'date-fns';
 
@@ -17,13 +18,15 @@ interface ProductIntelligenceDrawerProps {
   product: Product | null;
   open: boolean;
   onClose: () => void;
-  onEdit?: (product: Product) => void;
+  onSave?: (product: Product) => Promise<boolean | void>;
+  onDelete?: (id: string) => Promise<boolean | void>;
   onStockAction?: (product: Product, type: 'giris' | 'cikis') => void;
   products?: Product[];
   onTransferred?: () => void;
 }
 
-export function ProductIntelligenceDrawer({ product, open, onClose, onEdit, onStockAction, products, onTransferred }: ProductIntelligenceDrawerProps) {
+export function ProductIntelligenceDrawer({ product, open, onClose, onSave, onDelete, onStockAction, products, onTransferred }: ProductIntelligenceDrawerProps) {
+  const [activeTab, setActiveTab] = useState('overview');
   const [sparklineData, setSparklineData] = useState<{ date: string; giris: number; cikis: number }[]>([]);
   const [avgDailyConsumption, setAvgDailyConsumption] = useState(0);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
@@ -99,16 +102,14 @@ export function ProductIntelligenceDrawer({ product, open, onClose, onEdit, onSt
               <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => printBarcodeLabels([product])}>
                 <Printer className="w-3.5 h-3.5 mr-1" /> Etiket
               </Button>
-              {onEdit && (
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { onClose(); onEdit(product); }}>
-                  <Edit2 className="w-3.5 h-3.5 mr-1" /> Düzenle
-                </Button>
-              )}
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setActiveTab('edit')}>
+                <Pencil className="w-3.5 h-3.5 mr-1" /> Düzenle
+              </Button>
             </div>
           </div>
 
           {/* Tabs */}
-          <Tabs defaultValue="overview" className="flex-1 flex flex-col">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0 px-4">
               <TabsTrigger value="overview" className="text-xs data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 py-2.5">
                 <Eye className="w-3.5 h-3.5 mr-1.5" /> Genel Bakış
@@ -121,6 +122,9 @@ export function ProductIntelligenceDrawer({ product, open, onClose, onEdit, onSt
               </TabsTrigger>
               <TabsTrigger value="activity" className="text-xs data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 py-2.5">
                 <Activity className="w-3.5 h-3.5 mr-1.5" /> Aktivite
+              </TabsTrigger>
+              <TabsTrigger value="edit" className="text-xs data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 py-2.5">
+                <Pencil className="w-3.5 h-3.5 mr-1.5" /> Düzenle
               </TabsTrigger>
             </TabsList>
 
@@ -139,6 +143,24 @@ export function ProductIntelligenceDrawer({ product, open, onClose, onEdit, onSt
 
               <TabsContent value="activity" className="m-0">
                 <ProductActivityTimeline productId={product.id} productName={product.urunAdi} />
+              </TabsContent>
+
+              <TabsContent value="edit" className="m-0">
+                {onSave && onDelete && (
+                  <ProductEditTab
+                    product={product}
+                    onSave={onSave}
+                    onDelete={onDelete}
+                    onSaved={() => {
+                      setActiveTab('overview');
+                      onTransferred?.(); // refresh products
+                    }}
+                    onDeleted={() => {
+                      onClose();
+                      onTransferred?.();
+                    }}
+                  />
+                )}
               </TabsContent>
             </div>
           </Tabs>
