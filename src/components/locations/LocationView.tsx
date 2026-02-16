@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { MapPin, Package, AlertTriangle, Plus, Trash2, Edit2, RefreshCw } from 'lucide-react';
 import { Product } from '@/types/stock';
 import { cn } from '@/lib/utils';
@@ -33,6 +33,8 @@ interface LocationViewProps {
   onViewProduct: (id: string) => void;
 }
 
+const PAGE_SIZE = 30;
+
 export function LocationView({ products, searchQuery, onViewProduct }: LocationViewProps) {
   const { shelves, addShelf, updateShelf, deleteShelf, loading, refreshShelves } = useShelves();
   const { hasPermission } = usePermissions();
@@ -46,6 +48,7 @@ export function LocationView({ products, searchQuery, onViewProduct }: LocationV
   const [deletingShelfId, setDeletingShelfId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   // Group products by location
   const locationGroups = products.reduce((groups, product) => {
@@ -81,6 +84,13 @@ export function LocationView({ products, searchQuery, onViewProduct }: LocationV
     })
     .sort();
 
+  // Reset visible count when search changes
+  React.useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [searchQuery]);
+
+  const displayedLocations = filteredLocations.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredLocations.length;
   const handleAddShelf = async () => {
     if (!newShelfName.trim()) return;
     setIsSubmitting(true);
@@ -147,9 +157,16 @@ export function LocationView({ products, searchQuery, onViewProduct }: LocationV
         )}
       </div>
 
+      {/* Counter */}
+      {filteredLocations.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          {displayedLocations.length} / {filteredLocations.length} konum gösteriliyor
+        </p>
+      )}
+
       {/* Location Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredLocations.map((location, index) => {
+        {displayedLocations.map((location, index) => {
           const locationProducts = locationGroups[location] || [];
           const shelf = shelves.find(s => s.name === location);
 
@@ -182,6 +199,19 @@ export function LocationView({ products, searchQuery, onViewProduct }: LocationV
           </div>
         )}
       </div>
+
+      {/* Load More */}
+      {hasMore && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
+            className="gap-2"
+          >
+            Daha Fazla Yükle ({filteredLocations.length - visibleCount} kalan)
+          </Button>
+        </div>
+      )}
 
       {/* Dialogs */}
       <ShelfDialogs
