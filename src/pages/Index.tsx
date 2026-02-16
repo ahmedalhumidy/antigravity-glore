@@ -420,6 +420,8 @@ const Index = () => {
         onClose={() => setDetailDrawerProduct(null)}
         onEdit={(p) => { setDetailDrawerProduct(null); handleEditProduct(p); }}
         onStockAction={(p, type) => { setDetailDrawerProduct(null); handleStockAction(p, type); }}
+        products={products}
+        onTransferred={refreshProducts}
       />
     </div>
   );

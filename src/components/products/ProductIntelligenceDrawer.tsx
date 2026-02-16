@@ -3,13 +3,13 @@ import { Product } from '@/types/stock';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
 import { ProductOverviewTab } from './ProductOverviewTab';
 import { ProductMovementsTab } from './ProductMovementsTab';
 import { ProductAnalyticsTab } from './ProductAnalyticsTab';
 import { ProductActivityTimeline } from './ProductActivityTimeline';
 import { printBarcodeLabels } from './BarcodeLabel';
-import { ArrowUpRight, ArrowDownRight, Printer, Edit2, X, BarChart3, Clock, Eye, Activity } from 'lucide-react';
+import { TransferShelfModal } from '@/components/movements/TransferShelfModal';
+import { ArrowUpRight, ArrowDownRight, Printer, Edit2, X, BarChart3, Clock, Eye, Activity, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subDays } from 'date-fns';
 
@@ -19,11 +19,14 @@ interface ProductIntelligenceDrawerProps {
   onClose: () => void;
   onEdit?: (product: Product) => void;
   onStockAction?: (product: Product, type: 'giris' | 'cikis') => void;
+  products?: Product[];
+  onTransferred?: () => void;
 }
 
-export function ProductIntelligenceDrawer({ product, open, onClose, onEdit, onStockAction }: ProductIntelligenceDrawerProps) {
+export function ProductIntelligenceDrawer({ product, open, onClose, onEdit, onStockAction, products, onTransferred }: ProductIntelligenceDrawerProps) {
   const [sparklineData, setSparklineData] = useState<{ date: string; giris: number; cikis: number }[]>([]);
   const [avgDailyConsumption, setAvgDailyConsumption] = useState(0);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
 
   useEffect(() => {
     if (!product || !open) return;
@@ -37,7 +40,6 @@ export function ProductIntelligenceDrawer({ product, open, onClose, onEdit, onSt
         .eq('is_deleted', false)
         .gte('movement_date', since);
 
-      // Build 7-day data
       const days: Record<string, { giris: number; cikis: number }> = {};
       for (let i = 6; i >= 0; i--) {
         days[format(subDays(new Date(), i), 'yyyy-MM-dd')] = { giris: 0, cikis: 0 };
@@ -50,7 +52,6 @@ export function ProductIntelligenceDrawer({ product, open, onClose, onEdit, onSt
       });
       setSparklineData(Object.entries(days).map(([date, v]) => ({ date, ...v })));
 
-      // Avg daily consumption (30 days)
       const since30 = subDays(new Date(), 30).toISOString().split('T')[0];
       const { data: data30 } = await supabase
         .from('stock_movements')
@@ -70,74 +71,91 @@ export function ProductIntelligenceDrawer({ product, open, onClose, onEdit, onSt
   if (!product) return null;
 
   return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0 flex flex-col" side="right">
-        {/* Quick Actions Bar */}
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b px-4 py-3">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-base font-bold truncate pr-4">{product.urunAdi}</h2>
-            <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={onClose}>
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {onStockAction && (
-              <>
-                <Button size="sm" className="h-7 text-xs bg-success hover:bg-success/90 text-success-foreground" onClick={() => onStockAction(product, 'giris')}>
-                  <ArrowUpRight className="w-3.5 h-3.5 mr-1" /> Giriş
-                </Button>
-                <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => onStockAction(product, 'cikis')}>
-                  <ArrowDownRight className="w-3.5 h-3.5 mr-1" /> Çıkış
-                </Button>
-              </>
-            )}
-            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => printBarcodeLabels([product])}>
-              <Printer className="w-3.5 h-3.5 mr-1" /> Etiket
-            </Button>
-            {onEdit && (
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { onClose(); onEdit(product); }}>
-                <Edit2 className="w-3.5 h-3.5 mr-1" /> Düzenle
+    <>
+      <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0 flex flex-col" side="right">
+          {/* Quick Actions Bar */}
+          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b px-4 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-base font-bold truncate pr-4">{product.urunAdi}</h2>
+              <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={onClose}>
+                <X className="w-4 h-4" />
               </Button>
-            )}
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {onStockAction && (
+                <>
+                  <Button size="sm" className="h-7 text-xs bg-success hover:bg-success/90 text-success-foreground" onClick={() => onStockAction(product, 'giris')}>
+                    <ArrowUpRight className="w-3.5 h-3.5 mr-1" /> Giriş
+                  </Button>
+                  <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => onStockAction(product, 'cikis')}>
+                    <ArrowDownRight className="w-3.5 h-3.5 mr-1" /> Çıkış
+                  </Button>
+                </>
+              )}
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setTransferModalOpen(true)}>
+                <RefreshCw className="w-3.5 h-3.5 mr-1" /> Raf Transfer
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => printBarcodeLabels([product])}>
+                <Printer className="w-3.5 h-3.5 mr-1" /> Etiket
+              </Button>
+              {onEdit && (
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { onClose(); onEdit(product); }}>
+                  <Edit2 className="w-3.5 h-3.5 mr-1" /> Düzenle
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Tabs */}
-        <Tabs defaultValue="overview" className="flex-1 flex flex-col">
-          <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0 px-4">
-            <TabsTrigger value="overview" className="text-xs data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 py-2.5">
-              <Eye className="w-3.5 h-3.5 mr-1.5" /> Genel Bakış
-            </TabsTrigger>
-            <TabsTrigger value="movements" className="text-xs data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 py-2.5">
-              <Clock className="w-3.5 h-3.5 mr-1.5" /> Hareketler
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="text-xs data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 py-2.5">
-              <BarChart3 className="w-3.5 h-3.5 mr-1.5" /> Analiz
-            </TabsTrigger>
-            <TabsTrigger value="activity" className="text-xs data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 py-2.5">
-              <Activity className="w-3.5 h-3.5 mr-1.5" /> Aktivite
-            </TabsTrigger>
-          </TabsList>
+          {/* Tabs */}
+          <Tabs defaultValue="overview" className="flex-1 flex flex-col">
+            <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0 px-4">
+              <TabsTrigger value="overview" className="text-xs data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 py-2.5">
+                <Eye className="w-3.5 h-3.5 mr-1.5" /> Genel Bakış
+              </TabsTrigger>
+              <TabsTrigger value="movements" className="text-xs data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 py-2.5">
+                <Clock className="w-3.5 h-3.5 mr-1.5" /> Hareketler
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="text-xs data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 py-2.5">
+                <BarChart3 className="w-3.5 h-3.5 mr-1.5" /> Analiz
+              </TabsTrigger>
+              <TabsTrigger value="activity" className="text-xs data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 py-2.5">
+                <Activity className="w-3.5 h-3.5 mr-1.5" /> Aktivite
+              </TabsTrigger>
+            </TabsList>
 
-          <div className="flex-1 overflow-y-auto p-4">
-            <TabsContent value="overview" className="m-0">
-              <ProductOverviewTab product={product} sparklineData={sparklineData} avgDailyConsumption={avgDailyConsumption} />
-            </TabsContent>
+            <div className="flex-1 overflow-y-auto p-4">
+              <TabsContent value="overview" className="m-0">
+                <ProductOverviewTab product={product} sparklineData={sparklineData} avgDailyConsumption={avgDailyConsumption} />
+              </TabsContent>
 
-            <TabsContent value="movements" className="m-0">
-              <ProductMovementsTab productId={product.id} totalIn={product.toplamGiris} totalOut={product.toplamCikis} />
-            </TabsContent>
+              <TabsContent value="movements" className="m-0">
+                <ProductMovementsTab productId={product.id} totalIn={product.toplamGiris} totalOut={product.toplamCikis} />
+              </TabsContent>
 
-            <TabsContent value="analytics" className="m-0">
-              <ProductAnalyticsTab product={product} />
-            </TabsContent>
+              <TabsContent value="analytics" className="m-0">
+                <ProductAnalyticsTab product={product} />
+              </TabsContent>
 
-            <TabsContent value="activity" className="m-0">
-              <ProductActivityTimeline productId={product.id} productName={product.urunAdi} />
-            </TabsContent>
-          </div>
-        </Tabs>
-      </SheetContent>
-    </Sheet>
+              <TabsContent value="activity" className="m-0">
+                <ProductActivityTimeline productId={product.id} productName={product.urunAdi} />
+              </TabsContent>
+            </div>
+          </Tabs>
+        </SheetContent>
+      </Sheet>
+
+      {/* Transfer Modal */}
+      <TransferShelfModal
+        isOpen={transferModalOpen}
+        onClose={() => setTransferModalOpen(false)}
+        products={products || (product ? [product] : [])}
+        preSelectedProductId={product?.id}
+        onTransferred={() => {
+          setTransferModalOpen(false);
+          onTransferred?.();
+        }}
+      />
+    </>
   );
 }
