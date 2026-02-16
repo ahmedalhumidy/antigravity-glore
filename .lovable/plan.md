@@ -1,97 +1,142 @@
 
-# Native App Experience Upgrade
+
+# Native Mobile App Experience Upgrade
 
 ## Overview
-Transform the Product Intelligence Drawer and overall mobile experience to feel like a true native iOS/Android app. Based on the screenshot, the main issues are: the drawer has conflicting close buttons (default Sheet X + custom X), the quick actions bar is cramped on mobile, tabs get cut off, and the overall feel lacks native-app polish.
+Transform the mobile experience from a "website with a sidebar" to a true native-feeling warehouse app. The desktop experience stays exactly as-is. All changes are UI/UX only -- no warehouse logic, tables, or stock movement rules are touched.
 
 ## Changes
 
-### 1. Full-Screen Mobile Drawer (Native Feel)
-**File: `src/components/products/ProductIntelligenceDrawer.tsx`**
-- On mobile, make the drawer take 100% width and 100% height (full-screen takeover like native app detail views)
-- Remove the default Sheet `p-6` padding override -- use `p-0` as currently done but ensure the Sheet's built-in close button is hidden (it conflicts with the custom X button)
-- Add safe area padding at the bottom for iPhone home indicator
-- Make the quick actions bar wrap better on small screens with a horizontal scroll container
-- Make the tabs list horizontally scrollable with `overflow-x-auto scrollbar-hide` so "Duzenle" tab is always reachable
-- Add a swipe-down-to-close gesture feel by using the Sheet's drag handle on mobile
+### 1. Bottom Tab Bar for Mobile Navigation
+**New file: `src/components/layout/MobileBottomNav.tsx`**
 
-### 2. Hide Default Sheet Close Button
-**File: `src/components/ui/sheet.tsx`**
-- The Sheet component renders its own X close button at `absolute right-4 top-4` which overlaps with the custom one in the drawer
-- Hide it by default or add a prop to opt out, since the Intelligence Drawer has its own close button
+A persistent bottom tab bar visible on all pages (mobile only, hidden on lg+). Five tabs:
+- Home (LayoutDashboard) -> `/`
+- Products (Package) -> `/products`
+- **Scan** (center floating FAB button, larger, accent-colored) -> opens the existing ScanSessionLauncher
+- Movements (ArrowLeftRight) -> `/movements`
+- Profile (UserCog) -> `/profile`
 
-### 3. Polished Quick Actions Bar
-**File: `src/components/products/ProductIntelligenceDrawer.tsx`**
-- Reorganize the quick actions into a horizontally scrollable pill bar on mobile
-- Use icon-only buttons on very small screens with tooltips for labels
-- Group Stock In/Out as primary actions (colored), rest as secondary (outline)
-- Add haptic-like visual feedback (active:scale-95) for tap interactions
+The active tab is determined from the current URL path. The Scan button is elevated with a circular accent background, like native warehouse apps.
 
-### 4. Native-Style Tab Navigation
-**File: `src/components/products/ProductIntelligenceDrawer.tsx`**
-- Make the TabsList horizontally scrollable with snap scrolling
-- Remove icon labels on mobile to save space (icon-only tabs with active indicator)
-- Add a smooth underline animation that slides between tabs
-
-### 5. Touch-Optimized Content Areas
-**Files: All tab components**
-- Increase touch target sizes (minimum 44px for all interactive elements per Apple HIG)
-- Add `active:scale-[0.98]` press feedback on all cards and buttons
-- Use momentum scrolling (`-webkit-overflow-scrolling: touch`) where applicable
-
-### 6. Global Mobile Improvements
-**File: `src/index.css`**
-- Add touch-action manipulation hints for smoother scrolling
-- Disable text selection on interactive elements to prevent accidental selection
-- Add proper overscroll behavior for nested scroll areas
-
-### 7. Smooth Page Transitions
 **File: `src/pages/Index.tsx`**
-- Add subtle fade transitions when switching between views (dashboard, products, etc.)
-- Ensure the drawer open/close animation is smooth (currently uses Sheet defaults which are fine)
+- Remove the mobile hamburger menu toggle and the old mobile sidebar overlay entirely
+- Remove the `onMobileMenuToggle` prop from Header on mobile
+- Hide the Header's hamburger button on mobile (it's replaced by the bottom nav)
+- Add bottom padding (`pb-20`) to main content on mobile so content doesn't hide behind the bottom nav
+- Keep the desktop sidebar completely unchanged
+
+**File: `src/components/layout/Header.tsx`**
+- On mobile, simplify the header: remove the hamburger menu button since bottom nav replaces it
+- Keep all other header actions (search, scan, notifications, etc.)
+
+### 2. Swipe Gestures on Product Cards (Mobile)
+**New file: `src/hooks/useSwipeGesture.tsx`**
+
+A lightweight custom hook that tracks touch start/move/end to detect horizontal swipes and long press:
+- Swipe right (dx > 80px) -> trigger Stock In (giris)
+- Swipe left (dx < -80px) -> trigger Stock Out (cikis)
+- Long press (500ms) -> open Quick Count modal
+- Returns: `onTouchStart`, `onTouchMove`, `onTouchEnd` handlers + `swipeOffset` for visual feedback
+
+**File: `src/components/products/ProductList.tsx`**
+- On mobile cards only: attach swipe handlers
+- Show colored reveal behind the card during swipe:
+  - Green background with "+" icon when swiping right (Stock In)
+  - Red background with "-" icon when swiping left (Stock Out)
+- The card translates with the finger, snaps back on release
+- On threshold reach, trigger `onStockAction(product, 'giris'|'cikis')`
+- Long press triggers a callback for quick count (opens StockActionModal)
+- Desktop table rows are unchanged
+
+### 3. Haptic Feedback
+**New file: `src/hooks/useHaptics.tsx`**
+
+A simple utility that calls `navigator.vibrate()` where available:
+- `lightHaptic()` -> 10ms vibration (success actions, scans)
+- `strongHaptic()` -> [30, 50, 30] pattern (errors)
+- Falls back to no-op silently on unsupported devices
+
+Integrate into:
+- Swipe threshold reached (light)
+- Stock action submit success (light)
+- Error states (strong)
+
+### 4. Button-Level Loading States (No Full-Page Loaders)
+**File: `src/pages/Index.tsx`**
+- Replace the full-screen loading spinner with skeleton placeholders
+- Show a minimal top progress bar or skeleton cards instead of blocking the whole screen
+- Individual action buttons already have `isSubmitting` states (QuickStockInput has this) -- keep those
+
+### 5. Global Native-Feel CSS
+**File: `src/index.css`**
+- Add `user-select: none` on the app container on mobile (prevent accidental text selection)
+- Reduce heavy shadows on mobile with a media query (`@media (max-width: 768px)`)
+- Ensure `overscroll-behavior: contain` is applied globally (already partially done)
+- Add `.bottom-nav-safe` utility for bottom nav safe area spacing
+
+### 6. Mobile Header Cleanup
+**File: `src/pages/Index.tsx`**
+- On mobile, remove the redundant sign-out button from the page title area (it will be accessible from Profile tab)
+- The page title area on mobile becomes cleaner -- just the title, no email/logout clutter
+
+---
 
 ## Technical Details
 
-### Sheet Close Button Fix
-The Sheet component at line 60 renders:
-```
-<SheetPrimitive.Close className="absolute right-4 top-4 ...">
-```
-This conflicts with the Intelligence Drawer's custom X button. Solution: Add a `hideCloseButton` prop or use a CSS class to hide it when the drawer manages its own close button.
-
-### Mobile Full-Screen Drawer
-```
-SheetContent className="w-full sm:max-w-2xl h-full" 
-// On mobile: inset-0 (full screen)
-// On desktop: side panel as before
-```
-
-### Scrollable Tabs
-```
-<TabsList className="w-full overflow-x-auto scrollbar-hide flex-nowrap">
-```
-
-### Touch Feedback CSS
-```css
-.touch-feedback {
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 100ms ease;
-}
-.touch-feedback:active {
-  transform: scale(0.97);
-}
-```
+### Files to Create
+1. **`src/components/layout/MobileBottomNav.tsx`** -- Bottom tab bar component
+2. **`src/hooks/useSwipeGesture.tsx`** -- Touch swipe + long press detection hook
+3. **`src/hooks/useHaptics.tsx`** -- Haptic feedback utility hook
 
 ### Files to Modify
-1. `src/components/ui/sheet.tsx` -- Add `hideCloseButton` prop
-2. `src/components/products/ProductIntelligenceDrawer.tsx` -- Full-screen mobile, scrollable actions/tabs, touch feedback
-3. `src/components/products/ProductOverviewTab.tsx` -- Larger touch targets, press feedback on cards
-4. `src/components/products/ProductStockCards.tsx` -- Larger cards on mobile, press feedback
-5. `src/components/products/ProductMovementsTab.tsx` -- Better touch targets for timeline items
-6. `src/components/products/ProductAnalyticsTab.tsx` -- Responsive chart heights on mobile
-7. `src/components/products/ProductEditTab.tsx` -- Larger input fields, better spacing on mobile
-8. `src/index.css` -- Touch utilities, native-feel CSS helpers
-9. `src/pages/Index.tsx` -- View transition animations
+1. **`src/pages/Index.tsx`**
+   - Import and render `MobileBottomNav` (visible only on `lg:hidden`)
+   - Remove mobile sidebar overlay code (the `fixed inset-0 z-50 lg:hidden` div)
+   - Add `pb-20 lg:pb-0` to main content for bottom nav clearance
+   - Replace full-screen loading state with skeleton UI
+   - Remove mobile sign-out button clutter (move to profile page)
 
-### No Database Changes Required
-All changes are purely UI/UX improvements.
+2. **`src/components/layout/Header.tsx`**
+   - Hide hamburger menu button entirely (bottom nav replaces it)
+   - Remove `onMobileMenuToggle` usage
+
+3. **`src/components/products/ProductList.tsx`**
+   - Import `useSwipeGesture` and `useHaptics`
+   - Wrap mobile cards with swipe gesture handlers
+   - Add swipe reveal UI (green/red background behind card)
+   - Add long-press detection for quick count
+
+4. **`src/index.css`**
+   - Add mobile-specific shadow reduction
+   - Add bottom nav safe area utility
+   - Add `user-select: none` for the app on mobile
+
+### Bottom Nav Structure
+```text
++--------+--------+--------+--------+--------+
+|  Home  |Products|  SCAN  |Movement|Profile |
+| (icon) | (icon) | (FAB)  | (icon) | (icon) |
++--------+--------+--------+--------+--------+
+                   ^
+            Floating circle
+            accent background
+```
+
+### Swipe Gesture Visual
+```text
+Swipe Right (Stock In):
+[=GREEN BG=][  + icon  ][ ----CARD SLIDES RIGHT---- ]
+
+Swipe Left (Stock Out):
+[ ----CARD SLIDES LEFT---- ][ - icon  ][==RED BG===]
+```
+
+### No Changes To
+- Any database tables, RLS policies, or backend logic
+- Stock movement creation rules or validation
+- Desktop sidebar or desktop layout
+- Any Supabase queries or edge functions
+- ProductIntelligenceDrawer (already upgraded)
+- StockActionModal logic
+
