@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
-import { ArrowRight, Package, MapPin, RefreshCw, FileText } from 'lucide-react';
+import { ArrowRight, Package, MapPin, RefreshCw, FileText, X, Check, ChevronsUpDown } from 'lucide-react';
 import { Product } from '@/types/stock';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -11,24 +15,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
 import { ShelfSelector } from '@/components/shelves/ShelfSelector';
 import { useShelves, Shelf } from '@/hooks/useShelves';
 import { stockService } from '@/services/stockService';
 import { cn } from '@/lib/utils';
-import { Check, ChevronsUpDown } from 'lucide-react';
 
 interface TransferShelfModalProps {
   isOpen: boolean;
@@ -46,56 +36,82 @@ export function TransferShelfModal({
   preSelectedProductId,
 }: TransferShelfModalProps) {
   const { shelves, addShelf } = useShelves();
-  const [productId, setProductId] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [targetShelfId, setTargetShelfId] = useState<string | undefined>();
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [openProductCombobox, setOpenProductCombobox] = useState(false);
+  const [search, setSearch] = useState('');
 
-  const selectedProduct = products.find(p => p.id === productId);
   const targetShelf = shelves.find(s => s.id === targetShelfId);
+  const selectedProducts = products.filter(p => selectedIds.includes(p.id));
 
   useEffect(() => {
     if (preSelectedProductId) {
-      setProductId(preSelectedProductId);
+      setSelectedIds([preSelectedProductId]);
     }
   }, [preSelectedProductId]);
+
+  const filteredProducts = products.filter(p => {
+    const q = search.toLowerCase();
+    return (
+      p.urunAdi.toLowerCase().includes(q) ||
+      p.urunKodu.toLowerCase().includes(q) ||
+      (p.barkod && p.barkod.toLowerCase().includes(q))
+    );
+  });
+
+  const toggleProduct = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
 
   const handleTargetShelfSelect = (shelf: Shelf) => {
     setTargetShelfId(shelf.id);
   };
 
-  const canSubmit = selectedProduct && targetShelf && targetShelf.name !== selectedProduct.rafKonum;
+  const canSubmit =
+    selectedProducts.length > 0 &&
+    targetShelf &&
+    selectedProducts.some(p => p.rafKonum !== targetShelf.name);
 
   const handleSubmit = async () => {
-    if (!selectedProduct || !targetShelf) return;
+    if (!targetShelf || selectedProducts.length === 0) return;
 
     setIsSubmitting(true);
-    const success = await stockService.transferShelf({
-      productId: selectedProduct.id,
-      fromShelfName: selectedProduct.rafKonum,
-      toShelfId: targetShelf.id,
-      toShelfName: targetShelf.name,
-      note: note || undefined,
-    });
+    let successCount = 0;
+
+    for (const product of selectedProducts) {
+      if (product.rafKonum === targetShelf.name) continue;
+      const success = await stockService.transferShelf({
+        productId: product.id,
+        fromShelfName: product.rafKonum,
+        toShelfId: targetShelf.id,
+        toShelfName: targetShelf.name,
+        note: note || undefined,
+      });
+      if (success) successCount++;
+    }
+
     setIsSubmitting(false);
 
-    if (success) {
+    if (successCount > 0) {
       onTransferred?.();
       handleClose();
     }
   };
 
   const handleClose = () => {
-    setProductId('');
+    setSelectedIds([]);
     setTargetShelfId(undefined);
     setNote('');
+    setSearch('');
     onClose();
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[540px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-primary/10">
@@ -105,91 +121,102 @@ export function TransferShelfModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5 py-2">
+        <div className="space-y-4 py-2 flex-1 overflow-hidden flex flex-col">
           {/* Product Selection */}
-          <div className="space-y-2">
+          <div className="space-y-2 flex-1 flex flex-col min-h-0">
             <Label className="flex items-center gap-2">
               <Package className="w-4 h-4" />
               Ürün Seçin *
+              {selectedIds.length > 0 && (
+                <Badge variant="secondary" className="ml-1">
+                  {selectedIds.length} seçili
+                </Badge>
+              )}
             </Label>
-            <Popover open={openProductCombobox} onOpenChange={setOpenProductCombobox}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="w-full justify-between h-auto min-h-10 py-2"
-                >
-                  {selectedProduct ? (
-                    <div className="flex items-center gap-3 w-full text-left">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{selectedProduct.urunAdi}</div>
-                        <div className="text-xs text-muted-foreground">
-                          Kod: {selectedProduct.urunKodu}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">Ürün seçin...</span>
-                  )}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Ürün adı veya kodu ara..." />
-                  <CommandList>
-                    <CommandEmpty>Ürün bulunamadı</CommandEmpty>
-                    <CommandGroup>
-                      {products.map((product) => (
-                        <CommandItem
-                          key={product.id}
-                          value={`${product.urunAdi} ${product.urunKodu} ${product.barkod || ''}`}
-                          onSelect={() => {
-                            setProductId(product.id);
-                            setOpenProductCombobox(false);
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4 shrink-0",
-                              productId === product.id ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          <div className="flex items-center gap-3 w-full">
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium truncate">{product.urunAdi}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {product.urunKodu} | <MapPin className="w-3 h-3 inline" /> {product.rafKonum}
-                              </div>
-                            </div>
+
+            {/* Selected chips */}
+            {selectedProducts.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {selectedProducts.map(p => (
+                  <Badge
+                    key={p.id}
+                    variant="outline"
+                    className="gap-1 pr-1 cursor-pointer hover:bg-destructive/10"
+                    onClick={() => toggleProduct(p.id)}
+                  >
+                    {p.urunAdi}
+                    <X className="w-3 h-3" />
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {/* Search */}
+            <Input
+              placeholder="Ürün adı, kodu veya barkod ara..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+
+            {/* Product List */}
+            <ScrollArea className="h-[200px] border rounded-lg">
+              <div className="p-1">
+                {filteredProducts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Ürün bulunamadı
+                  </p>
+                ) : (
+                  filteredProducts.map(product => {
+                    const isSelected = selectedIds.includes(product.id);
+                    return (
+                      <button
+                        key={product.id}
+                        type="button"
+                        onClick={() => toggleProduct(product.id)}
+                        className={cn(
+                          'w-full flex items-center gap-3 p-2.5 rounded-lg text-left transition-colors',
+                          isSelected
+                            ? 'bg-primary/10 border border-primary/30'
+                            : 'hover:bg-muted/50 border border-transparent'
+                        )}
+                      >
+                        <Checkbox checked={isSelected} className="pointer-events-none" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate text-sm">{product.urunAdi}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {product.urunKodu} • <MapPin className="w-3 h-3 inline" /> {product.rafKonum}
                           </div>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </ScrollArea>
           </div>
 
           {/* Current → Target Display */}
-          {selectedProduct && (
+          {selectedProducts.length > 0 && (
             <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 border border-border">
               <div className="flex-1 text-center">
-                <p className="text-xs text-muted-foreground mb-1">Mevcut Raf</p>
-                <div className="flex items-center justify-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-muted-foreground" />
-                  <span className="font-semibold text-foreground">{selectedProduct.rafKonum}</span>
+                <p className="text-xs text-muted-foreground mb-1">Mevcut Raflar</p>
+                <div className="flex flex-wrap items-center justify-center gap-1">
+                  {[...new Set(selectedProducts.map(p => p.rafKonum))].map(loc => (
+                    <Badge key={loc} variant="outline" className="text-xs">
+                      <MapPin className="w-3 h-3 mr-1" />
+                      {loc}
+                    </Badge>
+                  ))}
                 </div>
               </div>
               <ArrowRight className="w-5 h-5 text-primary shrink-0" />
               <div className="flex-1 text-center">
                 <p className="text-xs text-muted-foreground mb-1">Hedef Raf</p>
                 {targetShelf ? (
-                  <div className="flex items-center justify-center gap-1.5">
-                    <MapPin className="w-4 h-4 text-primary" />
-                    <span className="font-semibold text-primary">{targetShelf.name}</span>
-                  </div>
+                  <Badge className="text-xs bg-primary/20 text-primary border-primary/30">
+                    <MapPin className="w-3 h-3 mr-1" />
+                    {targetShelf.name}
+                  </Badge>
                 ) : (
                   <span className="text-sm text-muted-foreground">Seçilmedi</span>
                 )}
@@ -199,7 +226,7 @@ export function TransferShelfModal({
 
           {/* Target Shelf Selector */}
           <ShelfSelector
-            shelves={shelves.filter(s => !selectedProduct || s.name !== selectedProduct.rafKonum)}
+            shelves={shelves}
             selectedShelfId={targetShelfId}
             onSelect={handleTargetShelfSelect}
             onAddNew={addShelf}
@@ -207,13 +234,6 @@ export function TransferShelfModal({
             placeholder="Transfer yapılacak rafı seçin..."
             required
           />
-
-          {/* Same shelf warning */}
-          {selectedProduct && targetShelf && targetShelf.name === selectedProduct.rafKonum && (
-            <p className="text-sm text-destructive">
-              Ürün zaten bu rafta. Farklı bir raf seçin.
-            </p>
-          )}
 
           {/* Note */}
           <div className="space-y-2">
@@ -248,7 +268,9 @@ export function TransferShelfModal({
             ) : (
               <>
                 <RefreshCw className="w-4 h-4" />
-                Transfer Et
+                {selectedIds.length > 1
+                  ? `${selectedIds.length} Ürün Transfer Et`
+                  : 'Transfer Et'}
               </>
             )}
           </Button>
