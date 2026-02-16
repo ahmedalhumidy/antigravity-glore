@@ -5,6 +5,7 @@ import { Dashboard } from "@/components/dashboard/Dashboard";
 import { ProductList } from "@/components/products/ProductList";
 import { ProductModal } from "@/components/products/ProductModal";
 import { StockActionModal } from "@/components/products/StockActionModal";
+import { ProductDetailDrawer } from "@/components/products/ProductDetailDrawer";
 import { MovementPage } from "@/components/movements/MovementPage";
 import { LocationView } from "@/components/locations/LocationView";
 import { AlertList } from "@/components/alerts/AlertList";
@@ -69,6 +70,7 @@ const Index = () => {
   // Modals
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [detailDrawerProduct, setDetailDrawerProduct] = useState<Product | null>(null);
   const [stockActionModalOpen, setStockActionModalOpen] = useState(false);
   const [stockActionType, setStockActionType] = useState<"giris" | "cikis">("giris");
   const [pendingBarcode, setPendingBarcode] = useState<string | undefined>();
@@ -138,8 +140,7 @@ const Index = () => {
   const handleViewProduct = (id: string) => {
     const product = products.find((p) => p.id === id);
     if (product) {
-      setSelectedProduct(product);
-      setProductModalOpen(true);
+      setDetailDrawerProduct(product);
     }
   };
 
@@ -411,6 +412,14 @@ const Index = () => {
         }}
         product={selectedProduct}
         actionType={stockActionType}
+      />
+      {/* Product Detail Drawer */}
+      <ProductDetailDrawer
+        product={detailDrawerProduct}
+        open={!!detailDrawerProduct}
+        onClose={() => setDetailDrawerProduct(null)}
+        onEdit={(p) => { setDetailDrawerProduct(null); handleEditProduct(p); }}
+        onStockAction={(p, type) => { setDetailDrawerProduct(null); handleStockAction(p, type); }}
       />
     </div>
   );

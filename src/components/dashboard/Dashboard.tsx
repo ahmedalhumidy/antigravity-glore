@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { Package, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, Users, Activity, Plus, ArrowLeftRight, Repeat } from 'lucide-react';
 import { StatCard } from './StatCard';
 import { RecentMovements } from './RecentMovements';
@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { cn } from '@/lib/utils';
+import { ActivityFeed } from './ActivityFeed';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DashboardProps {
   products: Product[];
@@ -434,6 +436,9 @@ export function Dashboard({ products, movements, onViewProduct }: DashboardProps
         {/* Recent Movements */}
         <RecentMovements movements={movements.slice(0, 5)} />
       </div>
+
+      {/* Activity Feed */}
+      <ActivityFeed />
 
       {/* Low Stock Alert */}
       {lowStockCount > 0 && (
