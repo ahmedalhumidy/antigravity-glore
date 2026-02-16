@@ -1,146 +1,84 @@
 
 
-# Ultra Professional Upgrade - Maximum Impact Features
+# Product Details Module - Inventory Intelligence View
 
 ## Overview
-This plan focuses on the highest-impact features that will transform your inventory system from a functional tool into an enterprise-grade platform that looks and feels world-class.
+Transform the current basic product detail drawer into a comprehensive **Inventory Intelligence View** -- a full-width, tabbed product command center that provides deep analytics, real-time stock tracking, visual barcode rendering, movement charts, and actionable insights all in one place.
 
 ---
 
-## 1. Real-Time Live Dashboard with Auto-Refresh
+## What You'll Get
 
-Currently the dashboard is static -- it only updates on page reload. We will add real-time subscriptions so when any user makes a stock movement, ALL dashboards update instantly.
+### Tab 1: Overview (Genel Bakis)
+- **Hero Header**: Product name, code, category badge, barcode visual rendered live via JsBarcode, and stock status indicator with pulse animation for low-stock items
+- **Stock Intelligence Cards**: 4 mini stat cards showing Current Stock (with gauge), Set Stock, Total In, Total Out -- each with percentage change indicators
+- **7-Day Movement Sparkline Chart**: A mini area chart showing daily in/out movements for this specific product over the last 7 days (using recharts)
+- **Quick Facts Grid**: Shelf location (clickable), barcode, last transaction date, days since last movement, average daily consumption rate
 
-**What you'll see:**
-- Stock numbers update live without refreshing
-- A subtle pulse animation when data changes
-- "Last updated: 2 seconds ago" indicator
+### Tab 2: Movement History (Hareket Gecmisi)
+- **Full Timeline**: Enhanced timeline with filtering by date range and movement type (in/out)
+- **Movement Summary Bar**: Total in vs total out as a visual ratio bar
+- **Each Entry Shows**: Quantity, type (color-coded), date/time, handled by whom, shelf, and notes -- with relative timestamps ("2 saat once")
 
----
+### Tab 3: Analytics (Analiz)
+- **Stock Trend Chart**: Line chart showing stock level changes over the last 30 days (calculated from movements)
+- **Consumption Rate**: Average daily/weekly consumption with forecast ("At this rate, stock will reach minimum in ~12 days")
+- **Movement Frequency**: Bar chart showing movement count by day of week
+- **Top Handlers**: Who performs the most operations on this product
 
-## 2. Product Detail Drawer (Full Page View)
-
-Replace the simple edit modal with a professional slide-out drawer that shows EVERYTHING about a product:
-
-- Product info header with barcode visual
-- Stock level gauge (circular progress showing current vs min)
-- Full movement history timeline for that product
-- Shelf location with link
-- Quick actions (Stock In/Out, Print Label, Transfer)
-- Notes and custom fields
-
----
-
-## 3. Advanced Auth Page with Company Branding
-
-The current login page is basic. Upgrade to:
-
-- Split-screen layout (brand panel + form)
-- Company logo and name from system settings
-- Animated background pattern
-- "Forgot Password" flow
-- Remember me option
+### Tab 4: Activity Log (Aktivite Kaydi)
+- Integrates the existing `ProductActivityTimeline` component
+- Shows all changes: edits, stock movements, shelf transfers, archive/restore actions
+- Each entry shows old vs new values for updates
 
 ---
 
-## 4. Interactive Shelf Map / Grid View
-
-Add a visual grid-based warehouse map in the Locations page:
-
-- Each shelf shown as a colored tile in a grid
-- Color indicates fill level (green = space available, yellow = getting full, red = overfull)
-- Click a tile to see shelf contents
-- Drag-and-drop products between shelves (future)
-- Print shelf layout as PDF
-
----
-
-## 5. Activity Feed / Timeline
-
-A real-time activity feed showing what's happening across the system:
-
-- "Ahmet added 50 units of Product X"
-- "Shelf B-12 is now 90% full"
-- "3 products are below minimum stock"
-- Filterable by user, action type, time range
-
----
-
-## 6. Enhanced Reports with PDF Export
-
-Upgrade the reports page:
-
-- Beautiful PDF report generation with company header/logo
-- Inventory valuation summary
-- Movement trends with charts embedded in PDF
-- Scheduled report option (daily/weekly summary)
-
----
-
-## 7. Dark Mode Toggle in Header
-
-Add a proper dark/light mode toggle:
-
-- Sun/Moon icon in the header
-- Smooth transition animation
-- Persists user preference
-- Already have dark theme CSS variables defined
-
----
-
-## 8. Onboarding / Empty States
-
-Professional empty states when sections have no data:
-
-- Illustrated SVG graphics
-- Clear call-to-action buttons
-- Quick-start guide for new users
-- "Import your first inventory" wizard
-
----
-
-## Implementation Priority
-
-| Order | Feature | Why First |
-|-------|---------|-----------|
-| 1 | Dark Mode Toggle | Quick win, high visual impact |
-| 2 | Product Detail Drawer | Most used feature, biggest UX upgrade |
-| 3 | Real-Time Dashboard | Makes system feel alive and professional |
-| 4 | Enhanced Auth Page | First impression matters |
-| 5 | Activity Feed | Builds trust and transparency |
-| 6 | Interactive Shelf Map | Advanced warehouse visualization |
-| 7 | PDF Reports | Enterprise reporting capability |
-| 8 | Onboarding Empty States | Polish for new users |
+## Quick Actions Bar (Always Visible at Top)
+- Stock In (green button)
+- Stock Out (red button)
+- Print Barcode Label
+- Edit Product
+- Transfer Shelf
+- Share/Export product card as PDF
 
 ---
 
 ## Technical Details
 
-### Files to Create
-- `src/components/products/ProductDetailDrawer.tsx` - Full product view in a Sheet/Drawer
-- `src/components/products/StockLevelGauge.tsx` - Circular progress for stock levels
-- `src/components/products/ProductTimeline.tsx` - Movement history for a single product
-- `src/components/layout/ThemeToggle.tsx` - Dark/Light mode switcher
-- `src/components/locations/ShelfGridMap.tsx` - Visual warehouse grid
-- `src/components/dashboard/ActivityFeed.tsx` - Real-time activity stream
-- `src/components/reports/PDFReportGenerator.tsx` - PDF export with jsPDF
+### New Files to Create
+- `src/components/products/ProductIntelligenceDrawer.tsx` -- Main container with tabs
+- `src/components/products/ProductOverviewTab.tsx` -- Overview tab content
+- `src/components/products/ProductMovementsTab.tsx` -- Enhanced movement history with filters
+- `src/components/products/ProductAnalyticsTab.tsx` -- Charts and forecasting
+- `src/components/products/ProductStockCards.tsx` -- Mini stat cards with sparklines
 
 ### Files to Modify
-- `src/pages/Auth.tsx` - Split-screen branded login
-- `src/components/layout/Header.tsx` - Add theme toggle
-- `src/components/dashboard/Dashboard.tsx` - Add real-time subscriptions and activity feed
-- `src/components/locations/LocationView.tsx` - Add grid map tab
-- `src/pages/Index.tsx` - Wire up ProductDetailDrawer
-- `src/index.css` - Polish dark mode variables
+- `src/pages/Index.tsx` -- Replace `ProductDetailDrawer` with `ProductIntelligenceDrawer`
+- `src/components/products/ProductList.tsx` -- Update view handler
+- `src/components/products/StockLevelGauge.tsx` -- Add animation and size variants
 
-### Database Changes
-- Enable Realtime on `stock_movements` table for live updates
-- No new tables needed
+### Data Queries (No DB Changes Needed)
+All analytics are computed from existing `stock_movements` and `product_activity_log` tables:
+- 7-day movement sparkline: GROUP BY movement_date for last 7 days
+- 30-day stock trend: Running sum calculation from movements
+- Consumption rate: Average daily outgoing over last 30 days
+- Movement frequency: GROUP BY day-of-week
+- Top handlers: GROUP BY handled_by with COUNT
 
-### Libraries (already installed)
-- `recharts` - for gauge charts
-- `jspdf` + `jspdf-autotable` - PDF reports
-- `next-themes` - theme management (already installed)
-- `vaul` - for the product detail drawer
-- `date-fns` - time formatting
+### Libraries Used (All Already Installed)
+- `recharts` -- for sparklines, area charts, bar charts
+- `date-fns` -- for date formatting and relative time
+- `jsbarcode` -- for live barcode rendering
+- `jspdf` -- for export/print functionality
+- `lucide-react` -- for icons
+
+---
+
+## UI Design Approach
+- Uses the existing Sheet (slide-out drawer) but expanded to `sm:max-w-2xl` for more space
+- Tabs component from Radix UI (already installed) for navigation between sections
+- Consistent with existing design system (same colors, fonts, card styles)
+- Fully responsive: tabs stack vertically on mobile
+- Smooth animations with CSS transitions
+- Dark mode compatible using existing CSS variables
 
