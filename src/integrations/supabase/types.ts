@@ -804,6 +804,33 @@ export type Database = {
           },
         ]
       }
+      production_stages: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          order_index: number
+          stage_type: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          order_index?: number
+          stage_type?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          order_index?: number
+          stage_type?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           acilis_stok: number
