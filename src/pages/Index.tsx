@@ -5,7 +5,7 @@ import { Dashboard } from "@/components/dashboard/Dashboard";
 import { ProductList } from "@/components/products/ProductList";
 import { ProductModal } from "@/components/products/ProductModal";
 import { StockActionModal } from "@/components/products/StockActionModal";
-import { ProductDetailDrawer } from "@/components/products/ProductDetailDrawer";
+import { ProductIntelligenceDrawer } from "@/components/products/ProductIntelligenceDrawer";
 import { MovementPage } from "@/components/movements/MovementPage";
 import { LocationView } from "@/components/locations/LocationView";
 import { AlertList } from "@/components/alerts/AlertList";
@@ -413,8 +413,8 @@ const Index = () => {
         product={selectedProduct}
         actionType={stockActionType}
       />
-      {/* Product Detail Drawer */}
-      <ProductDetailDrawer
+      {/* Product Intelligence Drawer */}
+      <ProductIntelligenceDrawer
         product={detailDrawerProduct}
         open={!!detailDrawerProduct}
         onClose={() => setDetailDrawerProduct(null)}
