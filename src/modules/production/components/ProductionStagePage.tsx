@@ -1,7 +1,10 @@
-import { useProductionStage } from '../hooks/useProductionStage';
+import { useState } from 'react';
+import { useProductionStage, useProductionStages } from '../hooks/useProductionStage';
 import { useProductionUnits, ProductionUnit } from '../hooks/useProductionUnits';
-import { Stamp, Scissors, Flame, Eraser, Paintbrush, ThermometerSun, PackageCheck, Drill, Loader2, Package } from 'lucide-react';
+import MoveToNextStageModal from './MoveToNextStageModal';
+import { Stamp, Scissors, Flame, Eraser, Paintbrush, ThermometerSun, PackageCheck, Drill, Loader2, Package, ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -39,7 +42,9 @@ interface Props {
 
 export default function ProductionStagePage({ code }: Props) {
   const { data: stage, isLoading: stageLoading } = useProductionStage(code);
+  const { data: allStages } = useProductionStages();
   const { data: units, isLoading: unitsLoading } = useProductionUnits(stage?.id);
+  const [moveOpen, setMoveOpen] = useState(false);
 
   if (stageLoading) {
     return (
@@ -61,23 +66,34 @@ export default function ProductionStagePage({ code }: Props) {
   const colorClass = stageColors[code] || 'bg-muted text-muted-foreground';
   const [bgClass, textClass] = colorClass.split(' ');
 
+  // Find next stage by order_index
+  const nextStage = allStages
+    ?.filter(s => s.order_index > stage.order_index)
+    .sort((a, b) => a.order_index - b.order_index)[0] ?? null;
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <div className={`w-14 h-14 rounded-2xl ${bgClass} flex items-center justify-center`}>
-          <Icon className={`w-7 h-7 ${textClass}`} />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{stage.name}</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <Badge variant="outline" className="text-xs">{typeLabels[stage.stage_type] || stage.stage_type}</Badge>
-            <Badge variant="secondary" className="text-xs">Sıra: {stage.order_index}</Badge>
-            <Badge variant="secondary" className="text-xs">
-              {units?.length ?? 0} birim
-            </Badge>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-4">
+          <div className={`w-14 h-14 rounded-2xl ${bgClass} flex items-center justify-center`}>
+            <Icon className={`w-7 h-7 ${textClass}`} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">{stage.name}</h1>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant="outline" className="text-xs">{typeLabels[stage.stage_type] || stage.stage_type}</Badge>
+              <Badge variant="secondary" className="text-xs">{units?.length ?? 0} birim</Badge>
+            </div>
           </div>
         </div>
+
+        {nextStage && (
+          <Button onClick={() => setMoveOpen(true)} className="gap-2">
+            <ArrowRight className="w-4 h-4" />
+            Sonraki Aşamaya Gönder
+          </Button>
+        )}
       </div>
 
       {/* Live list */}
@@ -121,6 +137,17 @@ export default function ProductionStagePage({ code }: Props) {
           </div>
         )}
       </div>
+
+      {/* Move modal */}
+      {nextStage && stage && units && (
+        <MoveToNextStageModal
+          open={moveOpen}
+          onOpenChange={setMoveOpen}
+          currentStage={stage}
+          nextStage={nextStage}
+          units={units}
+        />
+      )}
     </div>
   );
 }

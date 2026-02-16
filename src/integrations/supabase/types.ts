@@ -804,6 +804,61 @@ export type Database = {
           },
         ]
       }
+      production_moves: {
+        Row: {
+          created_at: string
+          from_stage_id: string
+          id: string
+          note: string | null
+          operator: string
+          quantity: number
+          to_stage_id: string
+          unit_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_stage_id: string
+          id?: string
+          note?: string | null
+          operator: string
+          quantity?: number
+          to_stage_id: string
+          unit_id: string
+        }
+        Update: {
+          created_at?: string
+          from_stage_id?: string
+          id?: string
+          note?: string | null
+          operator?: string
+          quantity?: number
+          to_stage_id?: string
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_moves_from_stage_id_fkey"
+            columns: ["from_stage_id"]
+            isOneToOne: false
+            referencedRelation: "production_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_moves_to_stage_id_fkey"
+            columns: ["to_stage_id"]
+            isOneToOne: false
+            referencedRelation: "production_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_moves_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "production_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       production_stages: {
         Row: {
           code: string
