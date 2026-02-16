@@ -42,9 +42,9 @@ export function ProductStockCards({ product, sparklineData }: ProductStockCardsP
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
       {cards.map((card) => (
-        <Card key={card.label} className="p-3 relative overflow-hidden">
+        <Card key={card.label} className="p-3.5 sm:p-3 relative overflow-hidden active:scale-[0.98] transition-transform rounded-xl sm:rounded-lg">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[11px] text-muted-foreground font-medium">{card.label}</p>

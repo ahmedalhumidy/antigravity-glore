@@ -102,12 +102,12 @@ export function ProductOverviewTab({ product, sparklineData, avgDailyConsumption
       <ProductStockCards product={product} sparklineData={sparklineData} />
 
       {/* Quick Facts Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
         {facts.map((fact) => (
-          <div key={fact.label} className="flex items-start gap-2 p-3 rounded-lg bg-muted/30 border">
-            <fact.icon className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <div key={fact.label} className="flex items-start gap-2.5 p-3.5 sm:p-3 rounded-xl sm:rounded-lg bg-muted/30 border min-h-[52px] active:scale-[0.98] transition-transform">
+            <fact.icon className="w-4.5 h-4.5 sm:w-4 sm:h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
             <div className="min-w-0">
-              <p className="text-[10px] text-muted-foreground">{fact.label}</p>
+              <p className="text-[11px] sm:text-[10px] text-muted-foreground">{fact.label}</p>
               <p className="text-sm font-medium truncate">{fact.value}</p>
             </div>
           </div>

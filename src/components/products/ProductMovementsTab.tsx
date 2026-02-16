@@ -74,7 +74,7 @@ export function ProductMovementsTab({ productId, totalIn, totalOut }: ProductMov
 
       {/* Filter */}
       <Select value={filter} onValueChange={setFilter}>
-        <SelectTrigger className="w-40 h-8 text-xs">
+        <SelectTrigger className="w-40 h-10 sm:h-8 text-sm sm:text-xs rounded-lg">
           <SelectValue placeholder="Filtrele" />
         </SelectTrigger>
         <SelectContent>
@@ -104,7 +104,7 @@ export function ProductMovementsTab({ productId, totalIn, totalOut }: ProductMov
                       'absolute -left-4 top-3 w-2.5 h-2.5 rounded-full border-2 border-background',
                       isIn ? 'bg-success' : 'bg-destructive'
                     )} />
-                    <div className="p-3 rounded-lg bg-muted/30 border">
+                    <div className="p-3.5 sm:p-3 rounded-xl sm:rounded-lg bg-muted/30 border active:scale-[0.99] transition-transform">
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2">
                           <Badge variant={isIn ? 'default' : 'destructive'} className="text-[10px] px-1.5 py-0">
