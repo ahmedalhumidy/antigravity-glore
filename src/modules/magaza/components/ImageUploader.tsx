@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Upload, X, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, Loader2, Link as LinkIcon } from 'lucide-react';
 
 interface Props {
   images: string[];
@@ -13,6 +14,9 @@ interface Props {
 
 export function ImageUploader({ images, onChange, folder = 'general', maxImages = 10 }: Props) {
   const [uploading, setUploading] = useState(false);
+  const [urlMode, setUrlMode] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [addingUrl, setAddingUrl] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const upload = async (files: FileList) => {
@@ -66,13 +70,48 @@ export function ImageUploader({ images, onChange, folder = 'general', maxImages 
     }
   };
 
+  const addFromUrl = async () => {
+    const url = urlInput.trim();
+    if (!url) return;
+
+    if (images.length >= maxImages) {
+      toast.error(`En fazla ${maxImages} görsel ekleyebilirsiniz`);
+      return;
+    }
+
+    try {
+      new URL(url);
+    } catch {
+      toast.error('Geçerli bir URL girin');
+      return;
+    }
+
+    setAddingUrl(true);
+    try {
+      // Validate it's an accessible image by trying to load it
+      await new Promise<void>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Görsel yüklenemedi'));
+        img.src = url;
+      });
+
+      onChange([...images, url]);
+      setUrlInput('');
+      toast.success('Görsel eklendi');
+    } catch {
+      toast.error('URL\'den görsel yüklenemedi. Geçerli bir görsel linki olduğundan emin olun.');
+    } finally {
+      setAddingUrl(false);
+    }
+  };
+
   const remove = (index: number) => {
     onChange(images.filter((_, i) => i !== index));
   };
 
   return (
     <div className="space-y-3">
-      {/* Preview grid */}
       {images.length > 0 && (
         <div className="grid grid-cols-4 gap-2">
           {images.map((url, i) => (
@@ -90,25 +129,63 @@ export function ImageUploader({ images, onChange, folder = 'general', maxImages 
         </div>
       )}
 
-      {/* Upload button */}
-      <div
-        onClick={() => !uploading && inputRef.current?.click()}
-        className="flex items-center justify-center gap-2 p-4 rounded-lg border-2 border-dashed border-border hover:border-primary/50 bg-muted/50 cursor-pointer transition-colors"
-      >
-        {uploading ? (
-          <>
-            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Yükleniyor...</span>
-          </>
-        ) : (
-          <>
-            <Upload className="w-5 h-5 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
-              Görsel yükle (maks. 5MB, {maxImages - images.length} kalan)
-            </span>
-          </>
-        )}
+      {/* Toggle buttons */}
+      <div className="flex gap-1.5">
+        <button
+          type="button"
+          onClick={() => setUrlMode(false)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            !urlMode ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Upload className="w-3.5 h-3.5" />
+          Dosya Yükle
+        </button>
+        <button
+          type="button"
+          onClick={() => setUrlMode(true)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            urlMode ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <LinkIcon className="w-3.5 h-3.5" />
+          URL ile Ekle
+        </button>
       </div>
+
+      {urlMode ? (
+        <div className="flex gap-2">
+          <Input
+            value={urlInput}
+            onChange={e => setUrlInput(e.target.value)}
+            placeholder="https://example.com/image.jpg"
+            className="flex-1 text-sm"
+            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addFromUrl())}
+          />
+          <Button type="button" size="sm" onClick={addFromUrl} disabled={addingUrl || !urlInput.trim()}>
+            {addingUrl ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Ekle'}
+          </Button>
+        </div>
+      ) : (
+        <div
+          onClick={() => !uploading && inputRef.current?.click()}
+          className="flex items-center justify-center gap-2 p-4 rounded-lg border-2 border-dashed border-border hover:border-primary/50 bg-muted/50 cursor-pointer transition-colors"
+        >
+          {uploading ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Yükleniyor...</span>
+            </>
+          ) : (
+            <>
+              <Upload className="w-5 h-5 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                Görsel yükle (maks. 5MB, {maxImages - images.length} kalan)
+              </span>
+            </>
+          )}
+        </div>
+      )}
 
       <input
         ref={inputRef}
