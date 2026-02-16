@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ArrowRight, Package, MapPin, RefreshCw, FileText, X, Check, ChevronsUpDown } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { ArrowRight, Package, MapPin, RefreshCw, FileText, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { Product } from '@/types/stock';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ShelfSelector } from '@/components/shelves/ShelfSelector';
 import { useShelves, Shelf } from '@/hooks/useShelves';
 import { stockService } from '@/services/stockService';
@@ -41,6 +42,7 @@ export function TransferShelfModal({
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [search, setSearch] = useState('');
+  const [openShelves, setOpenShelves] = useState<Record<string, boolean>>({});
 
   const targetShelf = shelves.find(s => s.id === targetShelfId);
   const selectedProducts = products.filter(p => selectedIds.includes(p.id));
@@ -51,19 +53,56 @@ export function TransferShelfModal({
     }
   }, [preSelectedProductId]);
 
-  const filteredProducts = products.filter(p => {
+  // Filter includes shelf name search
+  const filteredProducts = useMemo(() => {
     const q = search.toLowerCase();
-    return (
+    if (!q) return products;
+    return products.filter(p =>
       p.urunAdi.toLowerCase().includes(q) ||
       p.urunKodu.toLowerCase().includes(q) ||
-      (p.barkod && p.barkod.toLowerCase().includes(q))
+      (p.barkod && p.barkod.toLowerCase().includes(q)) ||
+      p.rafKonum.toLowerCase().includes(q)
     );
-  });
+  }, [products, search]);
+
+  // Group by shelf, sorted alphabetically
+  const groupedByShelf = useMemo(() => {
+    const groups: Record<string, Product[]> = {};
+    for (const p of filteredProducts) {
+      const key = p.rafKonum || 'Rafsız';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(p);
+    }
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  }, [filteredProducts]);
+
+  // Auto-open shelves when searching
+  useEffect(() => {
+    if (search) {
+      const allOpen: Record<string, boolean> = {};
+      groupedByShelf.forEach(([shelf]) => { allOpen[shelf] = true; });
+      setOpenShelves(allOpen);
+    }
+  }, [search, groupedByShelf]);
 
   const toggleProduct = (id: string) => {
     setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
+  };
+
+  const toggleShelfAll = (shelfProducts: Product[]) => {
+    const ids = shelfProducts.map(p => p.id);
+    const allSelected = ids.every(id => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
+    } else {
+      setSelectedIds(prev => [...new Set([...prev, ...ids])]);
+    }
+  };
+
+  const toggleShelfOpen = (shelf: string) => {
+    setOpenShelves(prev => ({ ...prev, [shelf]: !prev[shelf] }));
   };
 
   const handleTargetShelfSelect = (shelf: Shelf) => {
@@ -77,10 +116,8 @@ export function TransferShelfModal({
 
   const handleSubmit = async () => {
     if (!targetShelf || selectedProducts.length === 0) return;
-
     setIsSubmitting(true);
     let successCount = 0;
-
     for (const product of selectedProducts) {
       if (product.rafKonum === targetShelf.name) continue;
       const success = await stockService.transferShelf({
@@ -92,9 +129,7 @@ export function TransferShelfModal({
       });
       if (success) successCount++;
     }
-
     setIsSubmitting(false);
-
     if (successCount > 0) {
       onTransferred?.();
       handleClose();
@@ -106,6 +141,7 @@ export function TransferShelfModal({
     setTargetShelfId(undefined);
     setNote('');
     setSearch('');
+    setOpenShelves({});
     onClose();
   };
 
@@ -153,41 +189,92 @@ export function TransferShelfModal({
 
             {/* Search */}
             <Input
-              placeholder="Ürün adı, kodu veya barkod ara..."
+              placeholder="Ürün adı, kodu, barkod veya raf adı ara..."
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
 
-            {/* Product List */}
-            <ScrollArea className="h-[200px] border rounded-lg">
+            {/* Grouped Product List */}
+            <ScrollArea className="h-[240px] border rounded-lg">
               <div className="p-1">
-                {filteredProducts.length === 0 ? (
+                {groupedByShelf.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     Ürün bulunamadı
                   </p>
                 ) : (
-                  filteredProducts.map(product => {
-                    const isSelected = selectedIds.includes(product.id);
+                  groupedByShelf.map(([shelfName, shelfProducts]) => {
+                    const isOpen = openShelves[shelfName] ?? false;
+                    const shelfIds = shelfProducts.map(p => p.id);
+                    const allSelected = shelfIds.every(id => selectedIds.includes(id));
+                    const someSelected = shelfIds.some(id => selectedIds.includes(id));
+
                     return (
-                      <button
-                        key={product.id}
-                        type="button"
-                        onClick={() => toggleProduct(product.id)}
-                        className={cn(
-                          'w-full flex items-center gap-3 p-2.5 rounded-lg text-left transition-colors',
-                          isSelected
-                            ? 'bg-primary/10 border border-primary/30'
-                            : 'hover:bg-muted/50 border border-transparent'
-                        )}
+                      <Collapsible
+                        key={shelfName}
+                        open={isOpen}
+                        onOpenChange={() => toggleShelfOpen(shelfName)}
                       >
-                        <Checkbox checked={isSelected} className="pointer-events-none" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate text-sm">{product.urunAdi}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {product.urunKodu} • <MapPin className="w-3 h-3 inline" /> {product.rafKonum}
-                          </div>
+                        <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-muted/50 group">
+                          <CollapsibleTrigger asChild>
+                            <button
+                              type="button"
+                              className="flex items-center gap-2 flex-1 text-left"
+                            >
+                              {isOpen ? (
+                                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                              )}
+                              <MapPin className="w-3.5 h-3.5 text-primary" />
+                              <span className="font-medium text-sm">{shelfName}</span>
+                              <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                                {shelfProducts.length}
+                              </Badge>
+                            </button>
+                          </CollapsibleTrigger>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleShelfAll(shelfProducts);
+                            }}
+                          >
+                            {allSelected ? 'Kaldır' : 'Tümünü Seç'}
+                          </Button>
                         </div>
-                      </button>
+
+                        <CollapsibleContent>
+                          <div className="pl-6 space-y-0.5 pb-1">
+                            {shelfProducts.map(product => {
+                              const isSelected = selectedIds.includes(product.id);
+                              return (
+                                <button
+                                  key={product.id}
+                                  type="button"
+                                  onClick={() => toggleProduct(product.id)}
+                                  className={cn(
+                                    'w-full flex items-center gap-3 p-2 rounded-lg text-left transition-colors',
+                                    isSelected
+                                      ? 'bg-primary/10 border border-primary/30'
+                                      : 'hover:bg-muted/50 border border-transparent'
+                                  )}
+                                >
+                                  <Checkbox checked={isSelected} className="pointer-events-none" />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium truncate text-sm">{product.urunAdi}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {product.urunKodu}
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
                     );
                   })
                 )}
