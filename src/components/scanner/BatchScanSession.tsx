@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, Suspense, lazy } from 'react';
 import {
   Camera, X, Package, Check, AlertTriangle, Trash2,
-  Plus, Minus, ScanBarcode, Layers, ChevronDown, ChevronUp,
+  Plus, Minus, ScanBarcode, Layers, ChevronDown, ChevronUp, MapPin,
 } from 'lucide-react';
 import { Product } from '@/types/stock';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,8 @@ import { BatchScanItem, BatchScanItemCard } from './BatchScanItemCard';
 import { BatchScanSummary } from './BatchScanSummary';
 import { QuickAddProductForm } from './QuickAddProductForm';
 import { stockService } from '@/services/stockService';
+import { useShelves } from '@/hooks/useShelves';
+import { ShelfSelector } from '@/components/shelves/ShelfSelector';
 
 const LazyBarcodeScanner = lazy(() =>
   import('./BarcodeScanner').then((m) => ({ default: m.BarcodeScanner }))
@@ -39,7 +41,9 @@ export function BatchScanSession({
   const [isProcessing, setIsProcessing] = useState(false);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [quickAddBarcode, setQuickAddBarcode] = useState<string | null>(null);
+  const [showShelfAdd, setShowShelfAdd] = useState(false);
   const scanCountRef = useRef(0);
+  const { shelves, addShelf } = useShelves();
 
   const playBeep = useCallback((success: boolean) => {
     try {
@@ -331,8 +335,28 @@ export function BatchScanSession({
       </ScrollArea>
 
       {/* Bottom Actions */}
-      <div className="border-t border-border bg-card px-4 py-3 safe-area-bottom">
+      <div className="border-t border-border bg-card px-4 py-3 safe-area-bottom space-y-2">
+        {showShelfAdd && (
+          <div className="pb-2">
+            <ShelfSelector
+              shelves={shelves}
+              onSelect={() => setShowShelfAdd(false)}
+              onAddNew={addShelf}
+              label="Yeni Raf Oluştur"
+              placeholder="Raf seçin veya yeni ekleyin..."
+            />
+          </div>
+        )}
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="h-12 gap-2 border-primary/30 text-primary hover:bg-primary/10"
+            onClick={() => setShowShelfAdd(!showShelfAdd)}
+          >
+            <MapPin className="w-5 h-5" />
+            <span className="hidden sm:inline">Raf</span>
+          </Button>
+
           <Button
             className="flex-1 h-12 gap-2 text-base"
             onClick={() => setScannerOpen(true)}
