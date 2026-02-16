@@ -387,15 +387,14 @@ function SwipeableProductCard({
   const isLowStock = product.mevcutStok < product.minStok;
   const category = (product as any).category;
 
-  const { swipeOffset, onTouchStart, onTouchMove, onTouchEnd } = useSwipeGesture({
-    threshold: 80,
+  const { swipeOffset, lockedDirection, resetSwipe, onTouchStart, onTouchMove, onTouchEnd } = useSwipeGesture({
+    threshold: 60,
+    lockOffset: 80,
     onSwipeRight: () => {
       lightHaptic();
-      onStockAction(product, 'giris');
     },
     onSwipeLeft: () => {
       lightHaptic();
-      onStockAction(product, 'cikis');
     },
     onLongPress: () => {
       lightHaptic();
@@ -403,28 +402,56 @@ function SwipeableProductCard({
     },
   });
 
+  const handleActionClick = (type: 'giris' | 'cikis') => {
+    lightHaptic();
+    resetSwipe();
+    onStockAction(product, type);
+  };
+
+  const handleCardClick = () => {
+    if (lockedDirection) {
+      resetSwipe();
+      return;
+    }
+    onView();
+  };
+
   return (
     <div className="relative overflow-hidden rounded-xl">
       {/* Swipe reveal backgrounds */}
       <div className="absolute inset-0 flex">
-        <div className={cn(
-          'flex-1 flex items-center justify-start pl-6 bg-success/20 transition-opacity',
-          swipeOffset > 20 ? 'opacity-100' : 'opacity-0'
-        )}>
-          <div className="w-10 h-10 rounded-full bg-success/30 flex items-center justify-center">
-            <Plus className="w-5 h-5 text-success" />
+        {/* Right swipe = Giriş (green) */}
+        <button
+          type="button"
+          onClick={() => handleActionClick('giris')}
+          className={cn(
+            'flex-1 flex items-center justify-start pl-5 bg-success transition-opacity',
+            swipeOffset > 10 || lockedDirection === 'right' ? 'opacity-100' : 'opacity-0'
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+              <Plus className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-sm font-bold text-white">Giriş</span>
           </div>
-          <span className="ml-2 text-sm font-medium text-success">Giriş</span>
-        </div>
-        <div className={cn(
-          'flex-1 flex items-center justify-end pr-6 bg-destructive/20 transition-opacity',
-          swipeOffset < -20 ? 'opacity-100' : 'opacity-0'
-        )}>
-          <span className="mr-2 text-sm font-medium text-destructive">Çıkış</span>
-          <div className="w-10 h-10 rounded-full bg-destructive/30 flex items-center justify-center">
-            <Minus className="w-5 h-5 text-destructive" />
+        </button>
+        {/* Left swipe = Çıkış (red) */}
+        <button
+          type="button"
+          onClick={() => handleActionClick('cikis')}
+          className={cn(
+            'flex-1 flex items-center justify-end pr-5 bg-destructive transition-opacity',
+            swipeOffset < -10 || lockedDirection === 'left' ? 'opacity-100' : 'opacity-0'
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-white">Çıkış</span>
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+              <Minus className="w-6 h-6 text-white" />
+            </div>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Card */}
@@ -435,10 +462,10 @@ function SwipeableProductCard({
         )}
         style={{
           transform: `translateX(${swipeOffset}px)`,
-          transition: swipeOffset === 0 ? 'transform 0.3s ease' : 'none',
+          transition: lockedDirection || swipeOffset === 0 ? 'transform 0.3s ease' : 'none',
           ...(delay ? { animationDelay: `${delay}ms` } : {}),
         }}
-        onClick={onView}
+        onClick={handleCardClick}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
