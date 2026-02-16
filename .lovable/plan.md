@@ -1,142 +1,88 @@
 
 
-# Native Mobile App Experience Upgrade
+# Replace Profile Tab with Native Control Panel Hub
 
-## Overview
-Transform the mobile experience from a "website with a sidebar" to a true native-feeling warehouse app. The desktop experience stays exactly as-is. All changes are UI/UX only -- no warehouse logic, tables, or stock movement rules are touched.
+## What Changes
 
-## Changes
+### 1. Bottom Nav: Replace "Profil" with "Daha Fazla" (More) Hub
+**File: `src/components/layout/MobileBottomNav.tsx`**
 
-### 1. Bottom Tab Bar for Mobile Navigation
-**New file: `src/components/layout/MobileBottomNav.tsx`**
+Replace the last tab from Profile (single page) to a **"Daha Fazla"** (More) tab using the `Menu` or `Grid2X2` icon. This tab navigates to a new `/more` route that acts as a native-style hub page -- like the "More" tab in professional iOS/Android apps.
 
-A persistent bottom tab bar visible on all pages (mobile only, hidden on lg+). Five tabs:
-- Home (LayoutDashboard) -> `/`
-- Products (Package) -> `/products`
-- **Scan** (center floating FAB button, larger, accent-colored) -> opens the existing ScanSessionLauncher
-- Movements (ArrowLeftRight) -> `/movements`
-- Profile (UserCog) -> `/profile`
+Updated tabs:
+- Home (Ana Sayfa) -> `/`
+- Products (Urunler) -> `/products`
+- Scan (Tara) -> FAB center button
+- Movements (Hareketler) -> `/movements`
+- **Daha Fazla** (More) -> `/more` (replaces Profil)
 
-The active tab is determined from the current URL path. The Scan button is elevated with a circular accent background, like native warehouse apps.
+### 2. New Native "More" Hub Page
+**New file: `src/components/layout/MobileMoreHub.tsx`**
+
+A professional, native-feeling hub page that groups all secondary features into sections with large touch-friendly rows (like iOS Settings app). Sections:
+
+**User Section (top)**
+- User avatar + name + email with a subtle card background
+- Tap to go to Profile Settings
+
+**Quick Links Section**
+- Konumlar (Locations)
+- Uyarilar (Alerts) with badge count
+- Raporlar (Reports)
+- Arsiv (Archive)
+
+**Admin Section** (permission-gated)
+- Kullanicilar (Users)
+- Denetim Gunlugu (Audit Logs)
+- Sistem Ayarlari (Settings)
+- Kontrol Merkezi (Control Center)
+- Magaza Yonetimi (Store Management)
+- Galeri Yonetimi (Gallery Management)
+
+**Account Section (bottom)**
+- Profil Ayarlari (Profile Settings)
+- Cikis Yap (Sign Out) -- red destructive style
+
+Each row has the icon on the left, label, and a chevron-right arrow. Tapping navigates to the corresponding route. The whole page scrolls naturally and feels like a native settings/hub page.
+
+### 3. Route and View Registration
+**File: `src/hooks/useCurrentView.tsx`**
+- Add `'more'` to the ViewMode type and route map (`/more` -> `more`)
+
+**File: `src/types/stock.ts`**
+- Add `'more'` to the `ViewMode` union type
+
+**File: `src/App.tsx`**
+- Add `/more` route pointing to `<Index />`
 
 **File: `src/pages/Index.tsx`**
-- Remove the mobile hamburger menu toggle and the old mobile sidebar overlay entirely
-- Remove the `onMobileMenuToggle` prop from Header on mobile
-- Hide the Header's hamburger button on mobile (it's replaced by the bottom nav)
-- Add bottom padding (`pb-20`) to main content on mobile so content doesn't hide behind the bottom nav
-- Keep the desktop sidebar completely unchanged
-
-**File: `src/components/layout/Header.tsx`**
-- On mobile, simplify the header: remove the hamburger menu button since bottom nav replaces it
-- Keep all other header actions (search, scan, notifications, etc.)
-
-### 2. Swipe Gestures on Product Cards (Mobile)
-**New file: `src/hooks/useSwipeGesture.tsx`**
-
-A lightweight custom hook that tracks touch start/move/end to detect horizontal swipes and long press:
-- Swipe right (dx > 80px) -> trigger Stock In (giris)
-- Swipe left (dx < -80px) -> trigger Stock Out (cikis)
-- Long press (500ms) -> open Quick Count modal
-- Returns: `onTouchStart`, `onTouchMove`, `onTouchEnd` handlers + `swipeOffset` for visual feedback
-
-**File: `src/components/products/ProductList.tsx`**
-- On mobile cards only: attach swipe handlers
-- Show colored reveal behind the card during swipe:
-  - Green background with "+" icon when swiping right (Stock In)
-  - Red background with "-" icon when swiping left (Stock Out)
-- The card translates with the finger, snaps back on release
-- On threshold reach, trigger `onStockAction(product, 'giris'|'cikis')`
-- Long press triggers a callback for quick count (opens StockActionModal)
-- Desktop table rows are unchanged
-
-### 3. Haptic Feedback
-**New file: `src/hooks/useHaptics.tsx`**
-
-A simple utility that calls `navigator.vibrate()` where available:
-- `lightHaptic()` -> 10ms vibration (success actions, scans)
-- `strongHaptic()` -> [30, 50, 30] pattern (errors)
-- Falls back to no-op silently on unsupported devices
-
-Integrate into:
-- Swipe threshold reached (light)
-- Stock action submit success (light)
-- Error states (strong)
-
-### 4. Button-Level Loading States (No Full-Page Loaders)
-**File: `src/pages/Index.tsx`**
-- Replace the full-screen loading spinner with skeleton placeholders
-- Show a minimal top progress bar or skeleton cards instead of blocking the whole screen
-- Individual action buttons already have `isSubmitting` states (QuickStockInput has this) -- keep those
-
-### 5. Global Native-Feel CSS
-**File: `src/index.css`**
-- Add `user-select: none` on the app container on mobile (prevent accidental text selection)
-- Reduce heavy shadows on mobile with a media query (`@media (max-width: 768px)`)
-- Ensure `overscroll-behavior: contain` is applied globally (already partially done)
-- Add `.bottom-nav-safe` utility for bottom nav safe area spacing
-
-### 6. Mobile Header Cleanup
-**File: `src/pages/Index.tsx`**
-- On mobile, remove the redundant sign-out button from the page title area (it will be accessible from Profile tab)
-- The page title area on mobile becomes cleaner -- just the title, no email/logout clutter
-
----
-
-## Technical Details
+- Add the `more` view case that renders `<MobileMoreHub />`
+- Add `'more'` to viewTitles
+- Pass necessary props (alertCount, onSignOut, user) to the hub
 
 ### Files to Create
-1. **`src/components/layout/MobileBottomNav.tsx`** -- Bottom tab bar component
-2. **`src/hooks/useSwipeGesture.tsx`** -- Touch swipe + long press detection hook
-3. **`src/hooks/useHaptics.tsx`** -- Haptic feedback utility hook
+- `src/components/layout/MobileMoreHub.tsx` -- The native hub page
 
 ### Files to Modify
-1. **`src/pages/Index.tsx`**
-   - Import and render `MobileBottomNav` (visible only on `lg:hidden`)
-   - Remove mobile sidebar overlay code (the `fixed inset-0 z-50 lg:hidden` div)
-   - Add `pb-20 lg:pb-0` to main content for bottom nav clearance
-   - Replace full-screen loading state with skeleton UI
-   - Remove mobile sign-out button clutter (move to profile page)
+- `src/components/layout/MobileBottomNav.tsx` -- Change last tab from Profile to "Daha Fazla"
+- `src/types/stock.ts` -- Add `'more'` to ViewMode
+- `src/hooks/useCurrentView.tsx` -- Add `/more` route mapping
+- `src/App.tsx` -- Add `/more` protected route
+- `src/pages/Index.tsx` -- Render MobileMoreHub for the `more` view
 
-2. **`src/components/layout/Header.tsx`**
-   - Hide hamburger menu button entirely (bottom nav replaces it)
-   - Remove `onMobileMenuToggle` usage
+### Technical Details
 
-3. **`src/components/products/ProductList.tsx`**
-   - Import `useSwipeGesture` and `useHaptics`
-   - Wrap mobile cards with swipe gesture handlers
-   - Add swipe reveal UI (green/red background behind card)
-   - Add long-press detection for quick count
+**MobileMoreHub Layout:**
+- Native iOS Settings-style rows with 52px height, icon + label + chevron
+- Grouped in sections with subtle section headers (text-xs uppercase muted)
+- User card at top with avatar, name, email
+- Admin section hidden for non-admin users via `usePermissions`
+- Sign out button at bottom as a red destructive row
+- All navigation uses `useNavigate` to push to the correct route
+- Alert badge count passed as prop and shown on the Alerts row
 
-4. **`src/index.css`**
-   - Add mobile-specific shadow reduction
-   - Add bottom nav safe area utility
-   - Add `user-select: none` for the app on mobile
-
-### Bottom Nav Structure
-```text
-+--------+--------+--------+--------+--------+
-|  Home  |Products|  SCAN  |Movement|Profile |
-| (icon) | (icon) | (FAB)  | (icon) | (icon) |
-+--------+--------+--------+--------+--------+
-                   ^
-            Floating circle
-            accent background
-```
-
-### Swipe Gesture Visual
-```text
-Swipe Right (Stock In):
-[=GREEN BG=][  + icon  ][ ----CARD SLIDES RIGHT---- ]
-
-Swipe Left (Stock Out):
-[ ----CARD SLIDES LEFT---- ][ - icon  ][==RED BG===]
-```
-
-### No Changes To
-- Any database tables, RLS policies, or backend logic
-- Stock movement creation rules or validation
-- Desktop sidebar or desktop layout
-- Any Supabase queries or edge functions
-- ProductIntelligenceDrawer (already upgraded)
-- StockActionModal logic
-
+**No changes to:**
+- Any backend logic or database
+- Desktop sidebar (unchanged)
+- Existing page components
+- Stock movement rules
