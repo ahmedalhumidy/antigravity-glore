@@ -35,12 +35,7 @@ export async function globalSearch(query: string): Promise<SearchResult[]> {
   const pattern = `%${trimmed}%`;
 
   const [productsRes, shelvesRes] = await Promise.all([
-    supabase
-      .from('products')
-      .select('id, urun_adi, urun_kodu, barkod, mevcut_stok, raf_konum')
-      .eq('is_deleted', false)
-      .or(`urun_adi.ilike.${pattern},urun_kodu.ilike.${pattern},barkod.ilike.${pattern}`)
-      .limit(8),
+    supabase.rpc('search_products', { query: trimmed }),
     supabase
       .from('shelves')
       .select('id, name, description')
@@ -51,7 +46,7 @@ export async function globalSearch(query: string): Promise<SearchResult[]> {
   const results: SearchResult[] = [];
 
   if (productsRes.data) {
-    productsRes.data.forEach(p => {
+    productsRes.data.forEach((p: any) => {
       results.push({
         id: p.id,
         type: 'product',

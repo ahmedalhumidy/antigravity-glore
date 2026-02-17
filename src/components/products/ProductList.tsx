@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { Package, MapPin, AlertTriangle, ArrowUpDown, Download, Plus, Minus } from 'lucide-react';
+import { Package, MapPin, AlertTriangle, ArrowUpDown, Download, Plus, Minus, Search, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Product } from '@/types/stock';
 import { Button } from '@/components/ui/button';
@@ -11,10 +11,11 @@ import { CategoryFilter, getCategoryColor } from './CategoryFilter';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Input } from '@/components/ui/input';
+import { useProductSearch } from '@/hooks/useProductSearch';
 
 interface ProductListProps {
   products: Product[];
-  searchQuery: string;
   onEditProduct: (product: Product) => void;
   onDeleteProduct: (id: string) => void;
   onViewProduct: (id: string) => void;
@@ -26,7 +27,6 @@ type SortOrder = 'asc' | 'desc';
 
 export function ProductList({ 
   products, 
-  searchQuery, 
   onEditProduct, 
   onDeleteProduct,
   onViewProduct,
@@ -34,6 +34,9 @@ export function ProductList({
 }: ProductListProps) {
   const { hasPermission } = usePermissions();
   const canDeleteProducts = hasPermission('products.delete');
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const { searchResults, searching } = useProductSearch(searchQuery);
 
   const [sortField, setSortField] = useState<SortField>('urunAdi');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
@@ -53,18 +56,13 @@ export function ProductList({
     return Array.from(cats).sort((a, b) => a.localeCompare(b, 'tr'));
   }, [products]);
 
+  // Use server search results when available, otherwise show all products
+  const baseProducts = searchResults !== null ? searchResults : products;
+
   const filteredProducts = useMemo(() => {
-    const query = searchQuery.toLowerCase();
-    return products.filter((product) => {
-      const matchesSearch = product.urunAdi.toLowerCase().includes(query) ||
-        product.urunKodu.toLowerCase().includes(query) ||
-        product.rafKonum.toLowerCase().includes(query);
-      
-      const matchesCategory = !selectedCategory || (product as any).category === selectedCategory;
-      
-      return matchesSearch && matchesCategory;
-    });
-  }, [products, searchQuery, selectedCategory]);
+    if (!selectedCategory) return baseProducts;
+    return baseProducts.filter((product) => (product as any).category === selectedCategory);
+  }, [baseProducts, selectedCategory]);
 
   const sortedProducts = useMemo(() => {
     return [...filteredProducts].sort((a, b) => {
@@ -172,6 +170,22 @@ export function ProductList({
 
   return (
     <div className="animate-slide-up space-y-3">
+      {/* Server Search Input */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+        <Input
+          type="text"
+          placeholder="Ürün adı, kodu veya barkod ile ara..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10 pr-10 h-10"
+          style={{ fontSize: '16px' }}
+        />
+        {searching && (
+          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin" />
+        )}
+      </div>
+
       {/* Category Filter */}
       {categories.length > 0 && (
         <CategoryFilter

@@ -950,6 +950,7 @@ export type Database = {
           product_description: string | null
           raf_konum: string
           sale_price: number | null
+          search_text: string | null
           set_stok: number
           son_islem_tarihi: string | null
           store_id: string | null
@@ -979,6 +980,7 @@ export type Database = {
           product_description?: string | null
           raf_konum: string
           sale_price?: number | null
+          search_text?: string | null
           set_stok?: number
           son_islem_tarihi?: string | null
           store_id?: string | null
@@ -1008,6 +1010,7 @@ export type Database = {
           product_description?: string | null
           raf_konum?: string
           sale_price?: number | null
+          search_text?: string | null
           set_stok?: number
           son_islem_tarihi?: string | null
           store_id?: string | null
@@ -2056,6 +2059,49 @@ export type Database = {
         }
         Returns: boolean
       }
+      immutable_unaccent: { Args: { "": string }; Returns: string }
+      search_products: {
+        Args: { query: string }
+        Returns: {
+          acilis_stok: number
+          barkod: string | null
+          category: string | null
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string
+          images: Json | null
+          is_deleted: boolean
+          is_published: boolean | null
+          mevcut_stok: number
+          min_stok: number
+          notes: string | null
+          price: number | null
+          product_description: string | null
+          raf_konum: string
+          sale_price: number | null
+          search_text: string | null
+          set_stok: number
+          son_islem_tarihi: string | null
+          store_id: string | null
+          toplam_cikis: number
+          toplam_giris: number
+          updated_at: string
+          urun_adi: string
+          urun_kodu: string
+          uyari: boolean
+          weight: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
+      unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
       app_role:

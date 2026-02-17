@@ -346,7 +346,6 @@ const Index = () => {
           {currentView === "products" && (
             <ProductList
               products={products}
-              searchQuery={searchQuery}
               onEditProduct={handleEditProduct}
               onDeleteProduct={handleDeleteProduct}
               onViewProduct={handleViewProduct}
