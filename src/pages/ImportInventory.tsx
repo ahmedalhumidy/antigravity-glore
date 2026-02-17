@@ -33,7 +33,7 @@ export default function ImportInventory() {
 
   const parseXlsx = async (): Promise<ParsedItem[]> => {
     addLog('Dosya indiriliyor...');
-    const response = await fetch('/imports/inventory.xlsx');
+    const response = await fetch('/imports/urun_listesi_Final.xlsx');
     const buffer = await response.arrayBuffer();
     
     addLog('Excel dosyası ayrıştırılıyor...');
@@ -51,9 +51,9 @@ export default function ImportInventory() {
       const colA = String(row[0] || '').trim();
       const colB = String(row[1] || '').trim();
       const colC = String(row[2] || '').trim();
-      const colE = row[4]; // adet
-      const colF = row[5]; // set
-      const colG = String(row[6] || '').trim();
+      const colD = row[3]; // adet
+      const colE = row[4]; // set
+      const colF = String(row[5] || '').trim(); // barcode
 
       // Check if this is a shelf header (has value in colA, no code in colB)
       if (colA && !colB) {
@@ -75,26 +75,23 @@ export default function ImportInventory() {
       // Check if this is a product row (has numeric code or just a name with quantity)
       if (colC) {
         const hasCode = colB && /^\d+$/.test(colB);
-        const adet = typeof colE === 'number' ? colE : parseInt(String(colE)) || 0;
-        const set = typeof colF === 'number' ? colF : parseInt(String(colF)) || 0;
-        
-        // Skip if no quantity at all
-        if (adet === 0 && set === 0) continue;
+        const adet = typeof colD === 'number' ? colD : parseInt(String(colD)) || 0;
+        const set = typeof colE === 'number' ? colE : parseInt(String(colE)) || 0;
 
         // Use code if available, otherwise generate from name
         const code = hasCode ? colB : `AUTO-${colC.replace(/[^a-zA-Z0-9]/g, '').substring(0, 20)}`;
 
         let barcode: string | null = null;
-        if (colG && colG !== 'Barkod Yok' && colG.length > 3) {
+        if (colF && colF !== 'Barkod Yok' && colF.length > 3) {
           // Clean up scientific notation barcodes
-          if (colG.includes('E+') || colG.includes('e+')) {
+          if (colF.includes('E+') || colF.includes('e+')) {
             try {
-              barcode = BigInt(Math.round(parseFloat(colG))).toString();
+              barcode = BigInt(Math.round(parseFloat(colF))).toString();
             } catch {
-              barcode = colG;
+              barcode = colF;
             }
           } else {
-            barcode = colG.replace(/[^0-9]/g, '');
+            barcode = colF.replace(/[^0-9]/g, '');
           }
         }
 
