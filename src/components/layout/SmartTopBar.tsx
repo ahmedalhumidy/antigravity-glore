@@ -18,6 +18,7 @@ import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useSearchController } from '@/contexts/SearchController';
 import { findByBarcode } from '@/lib/globalSearch';
 import { RadialActionMenu } from './RadialActionMenu';
+import { toast } from 'sonner';
 import { AlertsPopover } from './AlertsPopover';
 import { SearchPalette } from './SearchPalette';
 import { Z } from '@/lib/layers';
@@ -286,11 +287,11 @@ export function SmartTopBar({
               <GlobalScannerButton />
               <RadialActionMenu
                 onStockIn={() => { if (lockedProduct) onStockAction(lockedProduct, 'giris'); else onAddProduct(); }}
-                onStockOut={() => { if (lockedProduct) onStockAction(lockedProduct, 'cikis'); }}
-                onCount={() => navigate('/')}
+                onStockOut={() => { if (lockedProduct) onStockAction(lockedProduct, 'cikis'); else toast.info('Çıkış için önce bir ürün tarayın veya seçin'); }}
+                onCount={() => toast.info('Sayım için önce bir ürün tarayın')}
                 onTransfer={onOpenTransfer}
-                onDamage={() => navigate('/')}
-                onPrintLabel={() => navigate('/')}
+                onDamage={() => toast.info('Hasar bildirimi için önce bir ürün tarayın')}
+                onPrintLabel={() => toast.info('Etiket yazdırmak için önce bir ürün seçin')}
               />
               <AlertsPopover
                 products={products}
