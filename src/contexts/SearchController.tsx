@@ -4,6 +4,31 @@ import { supabase } from '@/integrations/supabase/client';
 import { globalSearch, SearchResult } from '@/lib/globalSearch';
 import { toast } from 'sonner';
 
+/* ── Recent Products (localStorage) ── */
+const RECENTS_KEY = 'search_recent_products';
+const MAX_RECENTS = 8;
+
+interface RecentProduct {
+  id: string;
+  name: string;
+  code: string;
+  stock: number;
+}
+
+function getRecents(): RecentProduct[] {
+  try {
+    return JSON.parse(localStorage.getItem(RECENTS_KEY) || '[]');
+  } catch { return []; }
+}
+
+function pushRecent(p: RecentProduct) {
+  const list = getRecents().filter(r => r.id !== p.id);
+  list.unshift(p);
+  if (list.length > MAX_RECENTS) list.length = MAX_RECENTS;
+  try { localStorage.setItem(RECENTS_KEY, JSON.stringify(list)); } catch {}
+}
+
+/* ── Types ── */
 interface SearchControllerState {
   query: string;
   results: SearchResult[];
@@ -15,13 +40,14 @@ interface SearchControllerState {
   lastAction: string;
   lastError: string;
   providerId: string;
+  recentProducts: RecentProduct[];
 }
 
 interface SearchControllerActions {
   setQuery: (text: string) => void;
   openDropdown: () => void;
   closeDropdown: () => void;
-  openProduct: (id: string) => void;
+  openProduct: (id: string, prefill?: Partial<Product>) => void;
   closeDrawer: () => void;
   clear: () => void;
 }
@@ -50,6 +76,11 @@ function mapRow(data: any): Product {
   };
 }
 
+/* ── Barcode detection ── */
+function isBarcodeQuery(q: string): boolean {
+  return /^\d{6,}$/.test(q.trim());
+}
+
 export function SearchControllerProvider({ children }: { children: ReactNode }) {
   const providerId = useMemo(() => Math.random().toString(16).slice(2, 8), []);
   const [query, setQueryState] = useState('');
@@ -61,10 +92,12 @@ export function SearchControllerProvider({ children }: { children: ReactNode }) 
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [lastAction, setLastAction] = useState('init');
   const [lastError, setLastError] = useState('');
+  const [recentProducts, setRecentProducts] = useState<RecentProduct[]>(getRecents);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const requestIdRef = useRef(0);
+  const searchIdRef = useRef(0);
 
-  // Debounced search
+  // Debounced search with barcode auto-open
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -77,28 +110,47 @@ export function SearchControllerProvider({ children }: { children: ReactNode }) 
     }
 
     setLoading(true);
+    const isBarcode = isBarcodeQuery(trimmed);
+    const delay = isBarcode ? 100 : 250; // faster for barcodes
+    const searchId = ++searchIdRef.current;
+
     setLastAction('search:pending:' + trimmed);
     debounceRef.current = setTimeout(async () => {
       try {
-        console.log('[SearchController] searching:', trimmed);
         const res = await globalSearch(trimmed);
-        console.log('[SearchController] results:', res.length);
+        // Anti-race
+        if (searchIdRef.current !== searchId) return;
+
         setResults(res);
         setIsOpen(true);
         setLastAction('search:done:' + res.length);
+
+        // Barcode auto-open: if numeric query and exactly 1 product with exact barcode match
+        if (isBarcode && res.length > 0) {
+          const exactMatches = res.filter(
+            r => r.type === 'product' && (r as any).barcode === trimmed
+          );
+          if (exactMatches.length === 1) {
+            // Auto-open immediately
+            setLastAction('barcode:auto-open:' + exactMatches[0].id);
+            openProductInternal(exactMatches[0].id);
+            return;
+          }
+        }
       } catch (err: any) {
+        if (searchIdRef.current !== searchId) return;
         console.error('[SearchController] search error:', err);
         setLastError(err?.message || 'search failed');
         setLastAction('search:error');
         toast.error('Arama hatası');
         setResults([]);
       } finally {
-        setLoading(false);
+        if (searchIdRef.current === searchId) setLoading(false);
       }
-    }, 250);
+    }, delay);
 
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query]);
+  }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setQuery = useCallback((text: string) => {
     setQueryState(text);
@@ -113,37 +165,33 @@ export function SearchControllerProvider({ children }: { children: ReactNode }) 
     setLastAction('closeDropdown');
   }, []);
 
-  const openProduct = useCallback((id: string) => {
+  const openProductInternal = useCallback((id: string, prefill?: Partial<Product>) => {
     console.log('[SearchController] openProduct:', id);
     setLastAction('openProduct:start:' + id);
     setLastError('');
 
-    // 1) Close dropdown immediately
+    // 1) Close palette immediately
     setIsOpen(false);
     setQueryState('');
     setResults([]);
 
-    // 2) Open drawer immediately (skeleton state)
+    // 2) Open drawer immediately (skeleton/prefill)
     const reqId = ++requestIdRef.current;
     setDrawerLoading(true);
     setDrawerOpen(true);
-    setSelectedProduct(null);
+    setSelectedProduct(prefill ? ({ ...prefill, id } as Product) : null);
 
-    // 3) Fetch product
+    // 3) Fetch full product
     supabase
       .from('products')
       .select('*')
       .eq('id', id)
       .maybeSingle()
       .then(({ data, error }) => {
-        // Anti-race: only apply if this is still the latest request
-        if (requestIdRef.current !== reqId) {
-          console.log('[SearchController] stale request ignored');
-          return;
-        }
+        if (requestIdRef.current !== reqId) return;
 
         if (error) {
-          console.error('[SearchController] openProduct fetch error:', error);
+          console.error('[SearchController] fetch error:', error);
           setLastError(error.message);
           setLastAction('openProduct:error');
           toast.error('Ürün yüklenemedi: ' + error.message);
@@ -153,7 +201,6 @@ export function SearchControllerProvider({ children }: { children: ReactNode }) 
         }
 
         if (!data) {
-          console.error('[SearchController] openProduct: no data returned');
           setLastError('no data');
           setLastAction('openProduct:error:nodata');
           toast.error('Ürün bulunamadı');
@@ -162,12 +209,20 @@ export function SearchControllerProvider({ children }: { children: ReactNode }) 
           return;
         }
 
-        console.log('[SearchController] product loaded:', data.urun_adi);
-        setSelectedProduct(mapRow(data));
+        const mapped = mapRow(data);
+        setSelectedProduct(mapped);
         setDrawerLoading(false);
         setLastAction('openProduct:success:' + data.id);
+
+        // Push to recents
+        pushRecent({ id: mapped.id, name: mapped.urunAdi, code: mapped.urunKodu, stock: mapped.mevcutStok });
+        setRecentProducts(getRecents());
       });
   }, []);
+
+  const openProduct = useCallback((id: string, prefill?: Partial<Product>) => {
+    openProductInternal(id, prefill);
+  }, [openProductInternal]);
 
   const closeDrawer = useCallback(() => {
     setDrawerOpen(false);
@@ -187,7 +242,7 @@ export function SearchControllerProvider({ children }: { children: ReactNode }) 
   return (
     <SearchControllerContext.Provider value={{
       query, results, loading, isOpen, selectedProduct, drawerOpen, drawerLoading,
-      lastAction, lastError, providerId,
+      lastAction, lastError, providerId, recentProducts,
       setQuery, openDropdown, closeDropdown, openProduct, closeDrawer, clear,
     }}>
       {children}
@@ -226,34 +281,23 @@ export function SearchDebugOverlay() {
         maxWidth: 320, pointerEvents: 'auto',
       }}
     >
-      <div style={{ fontWeight: 'bold', marginBottom: 4, color: '#ff0' }}>🔍 Search Debug (pid: {ctx.providerId})</div>
+      <div style={{ fontWeight: 'bold', marginBottom: 4, color: '#ff0' }}>🔍 Debug (pid: {ctx.providerId})</div>
       <div>query: "{ctx.query}"</div>
-      <div>isOpen: {String(ctx.isOpen)}</div>
-      <div>results: {ctx.results.length}</div>
-      <div>loading: {String(ctx.loading)}</div>
-      <div>drawerOpen: {String(ctx.drawerOpen)}</div>
-      <div>drawerLoading: {String(ctx.drawerLoading)}</div>
-      <div>selectedProduct: {ctx.selectedProduct?.id?.slice(0, 8) || 'null'}</div>
-      <div style={{ color: '#0ff' }}>lastAction: {ctx.lastAction}</div>
-      <div style={{ color: '#f55' }}>lastError: {ctx.lastError || 'none'}</div>
+      <div>isOpen: {String(ctx.isOpen)} | results: {ctx.results.length}</div>
+      <div>drawerOpen: {String(ctx.drawerOpen)} | loading: {String(ctx.drawerLoading)}</div>
+      <div>product: {ctx.selectedProduct?.id?.slice(0, 8) || 'null'}</div>
+      <div style={{ color: '#0ff' }}>action: {ctx.lastAction}</div>
+      <div style={{ color: '#f55' }}>error: {ctx.lastError || 'none'}</div>
       <div style={{ marginTop: 6, display: 'flex', gap: 4 }}>
-        <button onClick={() => ctx.closeDrawer()} style={{ background: '#333', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: 4, cursor: 'pointer' }}>Close Drawer</button>
-        <button onClick={() => { ctx.closeDropdown(); ctx.closeDrawer(); }} style={{ background: '#333', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: 4, cursor: 'pointer' }}>Reset All</button>
+        <button onClick={() => ctx.closeDrawer()} style={{ background: '#333', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: 4, cursor: 'pointer' }}>Close</button>
+        <button onClick={() => { ctx.closeDropdown(); ctx.closeDrawer(); }} style={{ background: '#333', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: 4, cursor: 'pointer' }}>Reset</button>
         <button
           onClick={() => {
             if (ctx.results.length > 0) ctx.openProduct(ctx.results[0].id);
-            else toast.info('No results to test');
+            else toast.info('No results');
           }}
           style={{ background: '#063', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: 4, cursor: 'pointer' }}
         >Test 1st</button>
-        <button
-          onClick={() => {
-            // Force open drawer directly
-            // We can't call setDrawerOpen directly, so use openProduct with a known ID
-            toast.info('Use "Test 1st" with results, or type a query first');
-          }}
-          style={{ background: '#630', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: 4, cursor: 'pointer' }}
-        >Open Drawer</button>
       </div>
     </div>
   );
