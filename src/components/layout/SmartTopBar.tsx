@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Activity,
 } from 'lucide-react';
+import { GlobalScannerButton } from '@/modules/globalScanner/GlobalScannerButton';
 import { Product } from '@/types/stock';
 import { useNavigate } from 'react-router-dom';
 import { useWorkingContext } from '@/hooks/useWorkingContext';
@@ -390,14 +391,8 @@ export function SmartTopBar({
             "flex items-center gap-0.5 flex-shrink-0 transition-all",
             mobileInputExpanded && query ? 'hidden md:flex' : 'flex'
           )}>
-            {/* Scan Button */}
-            <button
-              onClick={onOpenScan}
-              className="p-2 rounded-lg hover:bg-muted transition-colors touch-feedback"
-              title="Tara"
-            >
-              <ScanBarcode className="w-5 h-5 text-foreground" />
-            </button>
+            {/* Global Scanner Button */}
+            <GlobalScannerButton />
 
             {/* Radial Action Menu */}
             <RadialActionMenu

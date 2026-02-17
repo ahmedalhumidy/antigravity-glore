@@ -1,6 +1,10 @@
 import { useState, lazy, Suspense } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SmartTopBar } from "@/components/layout/SmartTopBar";
+import { GlobalScannerProvider } from "@/modules/globalScanner/GlobalScannerProvider";
+import { GlobalScannerModal } from "@/modules/globalScanner/GlobalScannerModal";
+import { CopilotActionSheet } from "@/modules/globalScanner/CopilotActionSheet";
+import { QuickCreateProductSheet } from "@/modules/globalScanner/QuickCreateProductSheet";
 import { TransferShelfModal } from "@/components/movements/TransferShelfModal";
 import { Dashboard } from "@/components/dashboard/Dashboard";
 import { ProductList } from "@/components/products/ProductList";
@@ -249,6 +253,7 @@ const Index = () => {
   }
 
   return (
+    <GlobalScannerProvider>
     <div className="min-h-screen bg-background">
       {/* Desktop Sidebar only */}
       <div className="hidden lg:block">
@@ -474,7 +479,17 @@ const Index = () => {
         products={products}
         onTransferred={refreshProducts}
       />
+
+      {/* Global Scanner System */}
+      <GlobalScannerModal products={products} />
+      <CopilotActionSheet
+        onViewProduct={handleViewProduct}
+        onStockAction={handleStockAction}
+        onStockUpdated={refreshProducts}
+      />
+      <QuickCreateProductSheet />
     </div>
+    </GlobalScannerProvider>
   );
 };
 
