@@ -91,7 +91,7 @@ export default function ImportBarcodeCatalog() {
           const urunAdi = String(row[2] || '').trim();
           const barkod = String(row[3] || '').trim();
           const anaBirim = String(row[8] || '').trim();
-          const satisFiyati = parseFloat(String(row[12] || '0').replace(/[.,]/g, (m: string) => m === ',' ? '.' : '')) || 0;
+          // Price not needed - skip to avoid numeric overflow
           const ozelKod = String(row[13] || '').trim();
 
           if (!urunKodu || !urunAdi) {
@@ -123,7 +123,7 @@ export default function ImportBarcodeCatalog() {
               set_stok: 0,
               uyari: false,
               category: ozelKod || null,
-              sale_price: satisFiyati > 0 ? satisFiyati : null,
+              sale_price: null,
             });
             stats.created++;
           }
