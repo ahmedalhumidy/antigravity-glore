@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Product } from '@/types/stock';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 interface HeaderSearchProps {
   searchQuery: string;
@@ -51,37 +52,53 @@ export function HeaderSearch({ searchQuery, onSearchChange, products, onProductF
     onSearchChange('');
     setResults([]);
 
-    if (result.type === 'product') {
-      let product = products.find(p => p.id === result.id);
-      if (!product) {
-        const { data } = await supabase
-          .from('products')
-          .select('*')
-          .eq('id', result.id)
-          .maybeSingle();
-        if (data) {
-          product = {
-            id: data.id,
-            urunKodu: data.urun_kodu,
-            urunAdi: data.urun_adi,
-            rafKonum: data.raf_konum,
-            barkod: data.barkod || undefined,
-            acilisStok: data.acilis_stok,
-            toplamGiris: data.toplam_giris,
-            toplamCikis: data.toplam_cikis,
-            mevcutStok: data.mevcut_stok,
-            setStok: data.set_stok || 0,
-            minStok: data.min_stok,
-            uyari: data.uyari,
-            sonIslemTarihi: data.son_islem_tarihi || undefined,
-            not: data.notes || undefined,
-            category: data.category || undefined,
-          };
+    try {
+      if (result.type === 'product') {
+        let product = products.find(p => p.id === result.id);
+        if (!product) {
+          console.log('[HeaderSearch] Fetching product from DB:', result.id);
+          const { data, error } = await supabase
+            .from('products')
+            .select('*')
+            .eq('id', result.id)
+            .maybeSingle();
+          if (error) {
+            console.error('[HeaderSearch] DB fetch error:', error);
+            toast({ title: 'Ürün bilgisi alınamadı', description: error.message, variant: 'destructive' });
+            return;
+          }
+          if (data) {
+            product = {
+              id: data.id,
+              urunKodu: data.urun_kodu,
+              urunAdi: data.urun_adi,
+              rafKonum: data.raf_konum,
+              barkod: data.barkod || undefined,
+              acilisStok: data.acilis_stok,
+              toplamGiris: data.toplam_giris,
+              toplamCikis: data.toplam_cikis,
+              mevcutStok: data.mevcut_stok,
+              setStok: data.set_stok || 0,
+              minStok: data.min_stok,
+              uyari: data.uyari,
+              sonIslemTarihi: data.son_islem_tarihi || undefined,
+              not: data.notes || undefined,
+              category: data.category || undefined,
+            };
+          }
         }
+        if (product) {
+          onProductFound(product);
+        } else {
+          console.warn('[HeaderSearch] Product not found:', result.id);
+          toast({ title: 'Ürün bulunamadı', variant: 'destructive' });
+        }
+      } else {
+        navigate('/locations');
       }
-      if (product) onProductFound(product);
-    } else {
-      navigate('/locations');
+    } catch (err) {
+      console.error('[HeaderSearch] handleSelect error:', err);
+      toast({ title: 'Bir hata oluştu', variant: 'destructive' });
     }
   };
 
