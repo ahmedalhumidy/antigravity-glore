@@ -66,6 +66,7 @@ export function SmartTopBar({
   const inputRef = useRef<HTMLInputElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout>>();
   const autoHideTimer = useRef<ReturnType<typeof setTimeout>>();
+  const tappingResultRef = useRef(false);
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -151,6 +152,7 @@ export function SmartTopBar({
   }, [query, isCommandMode]);
 
   const executeCommand = useCallback((key: string) => {
+    tappingResultRef.current = false;
     setQuery('');
     setShowDropdown(false);
     setMobileInputExpanded(false);
@@ -167,6 +169,7 @@ export function SmartTopBar({
   }, [onAddProduct, onOpenTransfer, navigate]);
 
   const handleResultClick = useCallback(async (result: SearchResult) => {
+    tappingResultRef.current = false;
     console.log('[Search] handleResultClick called:', result.type, result.id, result.name);
     setQuery('');
     setShowDropdown(false);
@@ -285,7 +288,7 @@ export function SmartTopBar({
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 onFocus={() => { setMobileInputExpanded(true); if (query) setShowDropdown(true); }}
-                onBlur={() => { setTimeout(() => setShowDropdown(false), 200); }}
+                onBlur={() => { setTimeout(() => { if (!tappingResultRef.current) { setShowDropdown(false); } }, 200); }}
                 onKeyDown={handleInputKeyDown}
                 placeholder={mobileInputExpanded ? 'Ürün, barkod, raf veya > komut' : 'Ara... ⌘K'}
                 className={cn(
@@ -327,7 +330,7 @@ export function SmartTopBar({
                       {commandResults.map(cmd => (
                         <button
                           key={cmd.key}
-                         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); executeCommand(cmd.key); }}
+                         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); tappingResultRef.current = true; executeCommand(cmd.key); }}
                           className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors"
                         >
                           <span className="text-sm">{cmd.icon}</span>
@@ -347,7 +350,7 @@ export function SmartTopBar({
                       {results.filter(r => r.type === 'product').map(r => (
                         <button
                           key={r.id}
-                         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); handleResultClick(r); }}
+                         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); tappingResultRef.current = true; handleResultClick(r); }}
                            className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors"
                          >
                            <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -375,7 +378,7 @@ export function SmartTopBar({
                       {results.filter(r => r.type === 'shelf').map(r => (
                         <button
                           key={r.id}
-                         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); handleResultClick(r); }}
+                         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); tappingResultRef.current = true; handleResultClick(r); }}
                            className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors"
                          >
                            <div className="w-6 h-6 rounded bg-accent/10 flex items-center justify-center flex-shrink-0">
