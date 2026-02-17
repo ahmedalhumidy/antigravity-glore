@@ -175,7 +175,7 @@ export function HeaderSearch({ searchQuery, onSearchChange, products, onProductF
                 return (
                   <button
                     key={r.id}
-                    onClick={() => handleSelect(r)}
+                   onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); handleSelect(r); }}
                     className={cn(
                       'w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-accent/50 transition-colors text-sm',
                       selectedIndex === idx && 'bg-accent/50'
@@ -201,7 +201,7 @@ export function HeaderSearch({ searchQuery, onSearchChange, products, onProductF
                 return (
                   <button
                     key={r.id}
-                    onClick={() => handleSelect(r)}
+                   onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); handleSelect(r); }}
                     className={cn(
                       'w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-accent/50 transition-colors text-sm',
                       selectedIndex === idx && 'bg-accent/50'
