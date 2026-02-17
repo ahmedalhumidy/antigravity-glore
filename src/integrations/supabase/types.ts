@@ -2060,6 +2060,10 @@ export type Database = {
         Returns: boolean
       }
       immutable_unaccent: { Args: { "": string }; Returns: string }
+      rebuild_search_text_batch: {
+        Args: { codes: string[] }
+        Returns: undefined
+      }
       search_products: {
         Args: { query: string }
         Returns: {
