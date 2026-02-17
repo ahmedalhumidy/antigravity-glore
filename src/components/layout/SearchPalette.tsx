@@ -1,16 +1,9 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, ChevronRight, Clock, X, Package } from 'lucide-react';
+import { Search, ChevronRight, Clock, Package } from 'lucide-react';
 import { useSearchController } from '@/contexts/SearchController';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { Z } from '@/lib/layers';
-import { cn } from '@/lib/utils';
 
-/**
- * SearchPalette — renders search results as:
- * - Desktop: fixed dropdown positioned under the input
- * - Mobile: bottom sheet with drag-to-close
- */
 interface SearchPaletteProps {
   anchorRef: React.RefObject<HTMLDivElement>;
   onShelfSelect?: (id: string, name: string) => void;
@@ -18,10 +11,6 @@ interface SearchPaletteProps {
 
 export function SearchPalette({ anchorRef, onShelfSelect }: SearchPaletteProps) {
   const search = useSearchController();
-  const isMobile = useIsMobile();
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const dragStartY = useRef(0);
-  const [dragOffset, setDragOffset] = useState(0);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 
   const isCommandMode = search.query.startsWith('>');
@@ -30,36 +19,26 @@ export function SearchPalette({ anchorRef, onShelfSelect }: SearchPaletteProps) 
   const showRecents = search.isOpen && !isCommandMode && !hasQuery && search.recentProducts.length > 0;
   const showPalette = showResults || showRecents;
 
-  // Calculate dropdown position for desktop
+  // Calculate dropdown position anchored to input
   useEffect(() => {
-    if (!isMobile && showPalette && anchorRef.current) {
+    if (showPalette && anchorRef.current) {
       const rect = anchorRef.current.getBoundingClientRect();
-      setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+      const vw = window.innerWidth;
+      const isMobileWidth = vw < 768;
+      setDropdownPos({
+        top: rect.bottom + 4,
+        left: isMobileWidth ? 8 : rect.left,
+        width: isMobileWidth ? vw - 16 : Math.max(rect.width, 360),
+      });
     }
-  }, [showPalette, isMobile, search.query, anchorRef]);
+  }, [showPalette, search.query, anchorRef]);
 
   // Hardened click handler factory
   const makeHandlers = useCallback((action: () => void) => ({
-    onPointerDownCapture: (e: React.PointerEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      action();
-    },
-    onPointerDown: (e: React.PointerEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      action();
-    },
-    onClick: (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      action();
-    },
-    onTouchEnd: (e: React.TouchEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      action();
-    },
+    onPointerDownCapture: (e: React.PointerEvent) => { e.preventDefault(); e.stopPropagation(); action(); },
+    onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); e.stopPropagation(); action(); },
+    onClick: (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); action(); },
+    onTouchEnd: (e: React.TouchEvent) => { e.preventDefault(); e.stopPropagation(); action(); },
   }), []);
 
   const handleProductSelect = useCallback((id: string) => {
@@ -71,29 +50,16 @@ export function SearchPalette({ anchorRef, onShelfSelect }: SearchPaletteProps) 
     onShelfSelect?.(id, name);
   }, [search, onShelfSelect]);
 
-  // Mobile drag-to-close
-  const handleTouchStart = (e: React.TouchEvent) => {
-    dragStartY.current = e.touches[0].clientY;
-    setDragOffset(0);
-  };
-  const handleTouchMove = (e: React.TouchEvent) => {
-    const dy = e.touches[0].clientY - dragStartY.current;
-    if (dy > 0) setDragOffset(dy);
-  };
-  const handleTouchEnd = () => {
-    if (dragOffset > 100) {
-      search.closeDropdown();
-    }
-    setDragOffset(0);
-  };
-
   if (!showPalette) return null;
 
   const productResults = search.results.filter(r => r.type === 'product');
   const shelfResults = search.results.filter(r => r.type === 'shelf');
 
   const resultsList = (
-    <div className="max-h-80 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+    <div
+      className="overflow-y-auto overscroll-contain"
+      style={{ maxHeight: '60vh', WebkitOverflowScrolling: 'touch' }}
+    >
       {/* Loading skeleton */}
       {search.loading && search.results.length === 0 && (
         <div className="p-3 space-y-2">
@@ -109,7 +75,7 @@ export function SearchPalette({ anchorRef, onShelfSelect }: SearchPaletteProps) 
         </div>
       )}
 
-      {/* Recent products (empty query) */}
+      {/* Recent products */}
       {showRecents && (
         <div>
           <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/30 flex items-center gap-1">
@@ -204,61 +170,11 @@ export function SearchPalette({ anchorRef, onShelfSelect }: SearchPaletteProps) 
     </div>
   );
 
-  // ── MOBILE: Bottom Sheet ──
-  if (isMobile) {
-    return createPortal(
-      <>
-        {/* Backdrop */}
-        <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in-0 duration-200"
-          style={{ zIndex: Z.paletteBackdrop, pointerEvents: 'auto' }}
-          onClick={(e) => { if (e.target === e.currentTarget) search.closeDropdown(); }}
-        />
-        {/* Bottom Sheet */}
-        <div
-          ref={sheetRef}
-          className="fixed inset-x-0 bottom-0 bg-popover border-t border-border rounded-t-2xl shadow-2xl animate-in slide-in-from-bottom-10 duration-300"
-          style={{
-            zIndex: Z.palette,
-            pointerEvents: 'auto',
-            transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined,
-            transition: dragOffset > 0 ? 'none' : 'transform 0.3s ease',
-            maxHeight: '70vh',
-            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-          }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {/* Drag handle */}
-          <div className="flex justify-center py-2">
-            <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
-          </div>
-          {/* Search summary */}
-          <div className="px-3 pb-2 flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground">
-              {search.loading ? 'Aranıyor...' : `${search.results.length} sonuç`}
-            </p>
-            <button
-              onClick={() => search.closeDropdown()}
-              className="p-1.5 rounded-full hover:bg-muted active:scale-95 transition-transform"
-            >
-              <X className="w-4 h-4 text-muted-foreground" />
-            </button>
-          </div>
-          {resultsList}
-        </div>
-      </>,
-      document.body
-    );
-  }
-
-  // ── DESKTOP: Fixed dropdown ──
   return createPortal(
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0"
+        className="fixed inset-0 bg-black/40 animate-in fade-in-0 duration-200"
         style={{ zIndex: Z.paletteBackdrop, pointerEvents: 'auto' }}
         onClick={(e) => { if (e.target === e.currentTarget) search.closeDropdown(); }}
       />
@@ -270,8 +186,8 @@ export function SearchPalette({ anchorRef, onShelfSelect }: SearchPaletteProps) 
           pointerEvents: 'auto',
           top: dropdownPos.top,
           left: dropdownPos.left,
-          width: Math.max(dropdownPos.width, 360),
-          maxWidth: 'calc(100vw - 32px)',
+          width: dropdownPos.width,
+          maxWidth: 'calc(100vw - 16px)',
         }}
       >
         {resultsList}
