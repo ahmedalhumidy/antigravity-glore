@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Search,
   X,
@@ -58,6 +59,7 @@ export function SmartTopBar({
   const { pendingActions } = useOfflineSync();
   const search = useSearchController();
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputContainerRef = useRef<HTMLDivElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout>>();
   const autoHideTimer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -200,6 +202,7 @@ export function SmartTopBar({
     onPointerDownCapture: (e: React.PointerEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      console.log('RESULT CLICKED');
       action();
     },
     onPointerDown: (e: React.PointerEvent) => {
@@ -219,7 +222,17 @@ export function SmartTopBar({
     },
   });
 
+  // Compute dropdown position based on input element
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  useEffect(() => {
+    if ((showDropdown || showCommandDropdown) && inputContainerRef.current) {
+      const rect = inputContainerRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    }
+  }, [showDropdown, showCommandDropdown, search.query]);
+
   return (
+    <>
     <header
       className="sticky top-0 z-30 safe-area-top"
       onTouchStart={handleLongPressStart}
@@ -257,7 +270,7 @@ export function SmartTopBar({
           </div>
 
           {/* CENTER — Universal Command Input */}
-          <div className="relative flex-1 min-w-0">
+          <div ref={inputContainerRef} className="relative flex-1 min-w-0">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               <input
@@ -294,92 +307,6 @@ export function SmartTopBar({
                 </div>
               )}
             </div>
-
-            {/* Dropdown — Search Results */}
-            {(showDropdown || showCommandDropdown) && (
-              <div
-                className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-[60] animate-scale-in"
-              >
-                <div className="max-h-64 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-                  {/* Command results */}
-                  {showCommandDropdown && (
-                    <div>
-                      <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/30">
-                        Komutlar
-                      </div>
-                      {commandResults.map(cmd => (
-                        <button
-                          key={cmd.key}
-                          role="option"
-                          className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors"
-                          style={{ touchAction: 'manipulation' }}
-                          {...makeResultHandlers(() => executeCommand(cmd.key))}
-                        >
-                          <span className="text-sm">{cmd.icon}</span>
-                          <span className="text-xs font-medium text-foreground">{cmd.label}</span>
-                          <ChevronRight className="w-3 h-3 text-muted-foreground ml-auto" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Search results - Products */}
-                  {search.results.filter(r => r.type === 'product').length > 0 && (
-                    <div>
-                      <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/30">
-                        Ürünler
-                      </div>
-                      {search.results.filter(r => r.type === 'product').map(r => (
-                        <button
-                          key={r.id}
-                          role="option"
-                          className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors"
-                          style={{ touchAction: 'manipulation' }}
-                          {...makeResultHandlers(() => handleProductResult(r.id))}
-                        >
-                          <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <span className="text-[10px] font-bold text-primary">
-                              {r.name.charAt(0)}
-                            </span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-foreground truncate">{r.name}</p>
-                            <p className="text-[10px] text-muted-foreground">
-                              {r.type === 'product' && `${r.code} · Stok: ${r.stock}`}
-                            </p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Search results - Shelves */}
-                  {search.results.filter(r => r.type === 'shelf').length > 0 && (
-                    <div>
-                      <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/30">
-                        Raflar
-                      </div>
-                      {search.results.filter(r => r.type === 'shelf').map(r => (
-                        <button
-                          key={r.id}
-                          role="option"
-                          className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors"
-                          style={{ touchAction: 'manipulation' }}
-                          {...makeResultHandlers(() => handleShelfResult(r.id, r.name))}
-                        >
-                          <div className="w-6 h-6 rounded bg-accent/10 flex items-center justify-center flex-shrink-0">
-                            <span className="text-[10px] font-bold text-accent">{r.name.charAt(0)}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-foreground truncate">{r.name}</p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* RIGHT — Instant Actions */}
@@ -462,13 +389,115 @@ export function SmartTopBar({
         </div>
       )}
 
-      {/* Click overlay to close dropdown — z-index below results (z-50 < z-60) */}
-      {(showDropdown || showCommandDropdown) && (
-        <div
-          className="fixed inset-0 z-50"
-          onClick={() => search.closeDropdown()}
-        />
-      )}
     </header>
+
+    {/* PORTAL: Dropdown + Backdrop rendered OUTSIDE header stacking context */}
+    {(showDropdown || showCommandDropdown) && createPortal(
+      <>
+        {/* Backdrop — z-[9998] */}
+        <div
+          className="fixed inset-0"
+          style={{ zIndex: 9998, pointerEvents: 'auto' }}
+          onClick={(e) => { if (e.target === e.currentTarget) search.closeDropdown(); }}
+        />
+        {/* Results container — z-[9999], fixed position based on input */}
+        <div
+          className="fixed bg-popover border border-border rounded-lg shadow-xl overflow-hidden animate-scale-in"
+          style={{
+            zIndex: 9999,
+            pointerEvents: 'auto',
+            top: dropdownPos.top,
+            left: dropdownPos.left,
+            width: dropdownPos.width,
+            maxWidth: '100vw',
+          }}
+        >
+          <div className="max-h-64 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+            {/* Command results */}
+            {showCommandDropdown && (
+              <div>
+                <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/30">
+                  Komutlar
+                </div>
+                {commandResults.map(cmd => (
+                  <button
+                    key={cmd.key}
+                    type="button"
+                    role="option"
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+                    style={{ touchAction: 'manipulation' }}
+                    {...makeResultHandlers(() => executeCommand(cmd.key))}
+                  >
+                    <span className="text-sm">{cmd.icon}</span>
+                    <span className="text-xs font-medium text-foreground">{cmd.label}</span>
+                    <ChevronRight className="w-3 h-3 text-muted-foreground ml-auto" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Search results - Products */}
+            {search.results.filter(r => r.type === 'product').length > 0 && (
+              <div>
+                <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/30">
+                  Ürünler
+                </div>
+                {search.results.filter(r => r.type === 'product').map(r => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    role="option"
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+                    style={{ touchAction: 'manipulation' }}
+                    {...makeResultHandlers(() => handleProductResult(r.id))}
+                  >
+                    <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-[10px] font-bold text-primary">
+                        {r.name.charAt(0)}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">{r.name}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {r.type === 'product' && `${r.code} · Stok: ${r.stock}`}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Search results - Shelves */}
+            {search.results.filter(r => r.type === 'shelf').length > 0 && (
+              <div>
+                <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/30">
+                  Raflar
+                </div>
+                {search.results.filter(r => r.type === 'shelf').map(r => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    role="option"
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+                    style={{ touchAction: 'manipulation' }}
+                    {...makeResultHandlers(() => handleShelfResult(r.id, r.name))}
+                  >
+                    <div className="w-6 h-6 rounded bg-accent/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-[10px] font-bold text-accent">{r.name.charAt(0)}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">{r.name}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </>,
+      document.body
+    )}
+
+    </>
   );
 }
