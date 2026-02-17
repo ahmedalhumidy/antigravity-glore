@@ -5,6 +5,7 @@ import { globalSearch, SearchResult } from '@/lib/globalSearch';
 import { cn } from '@/lib/utils';
 import { Product } from '@/types/stock';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 interface HeaderSearchProps {
   searchQuery: string;
@@ -45,13 +46,39 @@ export function HeaderSearch({ searchQuery, onSearchChange, products, onProductF
     debounceRef.current = setTimeout(() => doSearch(value), 300);
   };
 
-  const handleSelect = (result: SearchResult) => {
+  const handleSelect = async (result: SearchResult) => {
     setShowDropdown(false);
     onSearchChange('');
     setResults([]);
 
     if (result.type === 'product') {
-      const product = products.find(p => p.id === result.id);
+      let product = products.find(p => p.id === result.id);
+      if (!product) {
+        const { data } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', result.id)
+          .maybeSingle();
+        if (data) {
+          product = {
+            id: data.id,
+            urunKodu: data.urun_kodu,
+            urunAdi: data.urun_adi,
+            rafKonum: data.raf_konum,
+            barkod: data.barkod || undefined,
+            acilisStok: data.acilis_stok,
+            toplamGiris: data.toplam_giris,
+            toplamCikis: data.toplam_cikis,
+            mevcutStok: data.mevcut_stok,
+            setStok: data.set_stok || 0,
+            minStok: data.min_stok,
+            uyari: data.uyari,
+            sonIslemTarihi: data.son_islem_tarihi || undefined,
+            not: data.notes || undefined,
+            category: data.category || undefined,
+          };
+        }
+      }
       if (product) onProductFound(product);
     } else {
       navigate('/locations');
