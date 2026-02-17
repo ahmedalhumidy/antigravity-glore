@@ -22,6 +22,36 @@ interface ImportSummary {
   total: number;
 }
 
+// --- Flexible column detection ---
+
+function normalizeColumnName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[_\s]+/g, ' ')
+    .trim();
+}
+
+function findColumnIndex(headers: string[], possibleNames: string[]): number {
+  const normalizedHeaders = headers.map(h => h ? normalizeColumnName(String(h)) : '');
+  const normalizedNames = possibleNames.map(normalizeColumnName);
+
+  for (const name of normalizedNames) {
+    const idx = normalizedHeaders.indexOf(name);
+    if (idx !== -1) return idx;
+  }
+  for (const name of normalizedNames) {
+    const idx = normalizedHeaders.findIndex(h => h.startsWith(name));
+    if (idx !== -1) return idx;
+  }
+  for (const name of normalizedNames) {
+    const idx = normalizedHeaders.findIndex(h => h.includes(name));
+    if (idx !== -1) return idx;
+  }
+  return -1;
+}
+
 export default function ImportBarcodeCatalog() {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -70,32 +100,46 @@ export default function ImportBarcodeCatalog() {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
+      if (rows.length < 2) {
+        addLog('Dosyada yeterli veri bulunamadı.', 'error');
+        setImporting(false);
+        return;
+      }
+
+      // Detect columns flexibly
+      const headerRow = rows[0].map((h: any) => String(h || ''));
+      const colKullanim = findColumnIndex(headerRow, ['kullanim', 'kullanım', 'durum', 'status']);
+      const colUrunKodu = findColumnIndex(headerRow, ['urun kodu', 'ürün kodu', 'product code', 'code']);
+      const colUrunAdi = findColumnIndex(headerRow, ['urun adi', 'ürün adı', 'product name', 'name']);
+      const colBarkod = findColumnIndex(headerRow, ['barkod', 'barcode', 'ean']);
+      const colOzelKod = findColumnIndex(headerRow, ['ozel kod', 'özel kod', 'special code', 'kategori', 'category']);
+
+      if (colUrunKodu === -1 || colUrunAdi === -1) {
+        addLog('Gerekli sütunlar bulunamadı: "Ürün Kodu" ve "Ürün Adı" sütunları gerekli.', 'error');
+        addLog(`Bulunan başlıklar: ${headerRow.join(', ')}`, 'info');
+        setImporting(false);
+        return;
+      }
+
+      addLog(`Sütunlar: Kod=${colUrunKodu}, Ad=${colUrunAdi}, Barkod=${colBarkod}, Kullanım=${colKullanim}, Kategori=${colOzelKod}`);
+
       const dataRows = rows.slice(1);
       addLog(`Toplam ${dataRows.length} satır bulundu.`);
 
-      // Filter: active + has valid barcode
+      // Filter: active + has valid barcode (if kullanim column exists)
       const validRows = dataRows.filter(row => {
-        const kullanim = String(row[0] || '').trim();
-        const barkod = String(row[3] || '').trim();
-        return kullanim === 'Kullanımda' && barkod && barkod !== 'Barkod Yok' && barkod.length > 3;
+        if (colKullanim !== -1) {
+          const kullanim = String(row[colKullanim] || '').trim();
+          if (kullanim && kullanim !== 'Kullanımda') return false;
+        }
+        const barkod = colBarkod !== -1 ? String(row[colBarkod] || '').trim() : '';
+        const urunKodu = String(row[colUrunKodu] || '').trim();
+        // Must have product code; barcode is optional
+        return urunKodu.length > 0 && (colBarkod === -1 || (barkod && barkod !== 'Barkod Yok' && barkod.length > 3));
       });
 
       stats.total = validRows.length;
-      addLog(`${validRows.length} aktif ve barkodlu ürün filtrelendi.`);
-
-      // Fetch existing product codes
-      addLog('Mevcut ürünler kontrol ediliyor...');
-      const { data: existingProducts } = await supabase
-        .from('products')
-        .select('id, urun_kodu, barkod')
-        .eq('is_deleted', false);
-
-      const existingMap = new Map<string, { id: string; barkod: string | null }>();
-      (existingProducts || []).forEach(p => {
-        existingMap.set(p.urun_kodu, { id: p.id, barkod: p.barkod });
-      });
-
-      addLog(`Veritabanında ${existingMap.size} mevcut ürün bulundu.`);
+      addLog(`${validRows.length} geçerli ürün filtrelendi.`);
 
       const batchSize = 50;
       const totalBatches = Math.ceil(validRows.length / batchSize);
@@ -104,73 +148,50 @@ export default function ImportBarcodeCatalog() {
         const batch = validRows.slice(i, i + batchSize);
         const batchNum = Math.floor(i / batchSize) + 1;
 
-        const toInsert: any[] = [];
-        const toUpdate: { id: string; barkod: string; sale_price?: number | null; price?: number | null }[] = [];
+        const upsertBatch: any[] = [];
 
         for (const row of batch) {
-          const urunKodu = String(row[1] || '').trim();
-          const urunAdi = String(row[2] || '').trim();
-          const barkod = String(row[3] || '').trim();
-          const ozelKod = String(row[13] || '').trim();
-          
-          // Parse prices safely
-          const satisFiyatiHaric = parseFloat(String(row[11] || '0').replace(',', '.'));
-          const satisFiyatiDahil = parseFloat(String(row[12] || '0').replace(',', '.'));
-          const price = isNaN(satisFiyatiHaric) || satisFiyatiHaric === 0 ? null : satisFiyatiHaric;
-          const salePrice = isNaN(satisFiyatiDahil) || satisFiyatiDahil === 0 ? null : satisFiyatiDahil;
+          const urunKodu = String(row[colUrunKodu] || '').trim();
+          const urunAdi = String(row[colUrunAdi] || '').trim();
+          const barkod = colBarkod !== -1 ? String(row[colBarkod] || '').trim() : '';
+          const ozelKod = colOzelKod !== -1 ? String(row[colOzelKod] || '').trim() : '';
 
           if (!urunKodu || !urunAdi) {
             stats.skipped++;
             continue;
           }
 
-          const existing = existingMap.get(urunKodu);
-
-          if (existing) {
-            if (existing.barkod !== barkod) {
-              toUpdate.push({ id: existing.id, barkod, sale_price: salePrice, price });
-              stats.updated++;
-            } else {
-              stats.skipped++;
-            }
-          } else {
-            toInsert.push({
-              urun_kodu: urunKodu,
-              urun_adi: urunAdi,
-              barkod: barkod,
-              raf_konum: 'Genel',
-              mevcut_stok: 0,
-              acilis_stok: 0,
-              toplam_giris: 0,
-              toplam_cikis: 0,
-              min_stok: 0,
-              set_stok: 0,
-              uyari: false,
-              category: ozelKod || null,
-              sale_price: salePrice,
-              price: price,
-            });
-            stats.created++;
-          }
+          upsertBatch.push({
+            urun_kodu: urunKodu,
+            urun_adi: urunAdi,
+            barkod: barkod || null,
+            raf_konum: 'Genel',
+            mevcut_stok: 0,
+            acilis_stok: 0,
+            toplam_giris: 0,
+            toplam_cikis: 0,
+            min_stok: 0,
+            set_stok: 0,
+            uyari: false,
+            category: ozelKod || null,
+          });
         }
 
-        if (toInsert.length > 0) {
-          const { error } = await supabase.from('products').insert(toInsert);
-          if (error) {
-            addLog(`Batch ${batchNum}: Ekleme hatası - ${error.message}`, 'error');
-            stats.errors += toInsert.length;
-            stats.created -= toInsert.length;
-          }
-        }
-
-        for (const upd of toUpdate) {
-          const { error } = await supabase
+        if (upsertBatch.length > 0) {
+          const { error, data } = await supabase
             .from('products')
-            .update({ barkod: upd.barkod, sale_price: upd.sale_price, price: upd.price })
-            .eq('id', upd.id);
+            .upsert(upsertBatch, {
+              onConflict: 'urun_kodu',
+              ignoreDuplicates: false,
+            })
+            .select('id');
+
           if (error) {
-            stats.errors++;
-            stats.updated--;
+            addLog(`Batch ${batchNum}: Hata - ${error.message}`, 'error');
+            stats.errors += upsertBatch.length;
+          } else {
+            // Upsert doesn't distinguish created vs updated, count all as processed
+            stats.updated += (data?.length || 0);
           }
         }
 
@@ -201,11 +222,10 @@ export default function ImportBarcodeCatalog() {
             Barkod Kataloğu İçe Aktarma
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Excel dosyasından ürün barkodlarını veritabanına yükler. Mevcut ürünlerin barkodları güncellenir, yeni ürünler stok=0 ile eklenir.
+            Excel dosyasından ürün barkodlarını veritabanına yükler. Mevcut ürünler güncellenir (upsert), yeni ürünler stok=0 ile eklenir.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* File Picker */}
           <div className="space-y-2">
             <Label htmlFor="file-input">Excel Dosyası Seçin (opsiyonel)</Label>
             <div className="flex items-center gap-3">
@@ -258,12 +278,8 @@ export default function ImportBarcodeCatalog() {
             <Card className="border-success/30 bg-success/5">
               <CardContent className="pt-4 grid grid-cols-2 gap-3 text-sm">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-success" />
-                  <span>Eklenen: <strong>{summary.created}</strong></span>
-                </div>
-                <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-blue-500" />
-                  <span>Güncellenen: <strong>{summary.updated}</strong></span>
+                  <span>İşlenen: <strong>{summary.updated}</strong></span>
                 </div>
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-muted-foreground" />
@@ -272,6 +288,10 @@ export default function ImportBarcodeCatalog() {
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-destructive" />
                   <span>Hata: <strong>{summary.errors}</strong></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-muted-foreground" />
+                  <span>Toplam: <strong>{summary.total}</strong></span>
                 </div>
               </CardContent>
             </Card>
