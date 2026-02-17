@@ -1,46 +1,48 @@
 
 
-# Fix: Product Search Click Does Nothing
+# Fix: Product Search Click Still Not Working
 
 ## Problem
-When you search for a product in the top search bar and click on a result, nothing happens.
+After clicking a search result, nothing happens. The previous fix added a database fallback fetch, but it lacks error handling -- if the fetch fails (e.g., network issue, auth problem), the failure is silent and the user sees nothing.
 
-## Root Cause
-The search bar queries the database directly and can find any of the 24,000+ products. But when you click a result, the code tries to find that product in the locally loaded `products` array:
+## Root Cause Analysis
+Two issues identified:
 
-```text
-SmartTopBar line 172:
-  const product = products.find(p => p.id === result.id);
-  if (product) onProductFound(product);  // <-- silently skips if not found locally
-```
+1. **No error handling on fallback fetch**: The `await supabase...maybeSingle()` call in `handleResultClick` can fail silently. If there's an error (auth, network, RLS), `data` is null and nothing happens -- no toast, no feedback.
 
-With 24,000+ products in the database, the local array may not contain the clicked product (due to loading timing or pagination), so `find()` returns nothing and the click is silently ignored.
+2. **Touch event conflict on mobile**: The `<header>` element has `onTouchStart={handleLongPressStart}` which fires BEFORE any child button's `onClick`. On mobile, tapping a search result triggers the long-press timer on the header wrapper, which may interfere with the click registration on fast taps.
 
 ## Fix
 
 ### File: `src/components/layout/SmartTopBar.tsx`
 
-Update `handleResultClick` to handle the case where a product isn't in the local array:
+**Fix 1 -- Add error handling + toast feedback to `handleResultClick`:**
+- Add `console.log` before and after the fetch for debugging
+- Add `toast.error()` if the fetch fails
+- Add `toast.error()` if product is still not found after fetch
 
-1. If the product is found locally -- use it directly (current behavior, works fine)
-2. If the product is NOT found locally -- fetch it from the database by ID, then call `onProductFound`
+**Fix 2 -- Stop touch event propagation on dropdown buttons:**
+- Add `onTouchStart={(e) => e.stopPropagation()}` on the dropdown result buttons to prevent the header's long-press handler from intercepting taps
+- This ensures mobile taps on search results don't trigger the long-press timer
 
-This ensures every search result click works regardless of whether the product is in the local cache.
+**Fix 3 -- Use `onMouseDown` with `preventDefault` on dropdown buttons:**
+- Prevent the input from losing focus (which could cause re-renders) by using `onMouseDown` with `preventDefault` on the buttons
+- This is a standard pattern for dropdown menus where clicking items shouldn't blur the input before the click registers
 
-### Technical Change
+### File: `src/components/layout/HeaderSearch.tsx`
 
-In `handleResultClick` (around line 167):
-- When `products.find()` returns `undefined`, make a database call: `supabase.from('products').select('*').eq('id', result.id).single()`
-- Map the database row to a `Product` object (same mapping as in `useProducts`)
-- Then call `onProductFound()` with the fetched product
+Apply the same error handling fixes to the `handleSelect` function:
+- Add error logging and toast feedback for failed fetches
 
-### Secondary Fix: Same issue in `HeaderSearch.tsx`
-The `HeaderSearch` component has the same pattern at line 54:
+## Technical Details
+
+```text
+SmartTopBar handleResultClick changes:
+1. Add try/catch around the entire function body
+2. Add toast.error on fetch failure
+3. Add onTouchStart stopPropagation on result buttons
+4. Add onMouseDown preventDefault on result buttons
 ```
-const product = products.find(p => p.id === result.id);
-if (product) onProductFound(product);
-```
-Apply the same fix there as a fallback fetch.
 
 ## No database changes needed
-This is purely a frontend fix.
+This is purely a frontend fix for error handling and mobile touch event conflicts.
