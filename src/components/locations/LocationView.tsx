@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Package, AlertTriangle, Plus, Trash2, Edit2, RefreshCw, Grid3X3, List } from 'lucide-react';
+import { MapPin, Package, AlertTriangle, Plus, Trash2, Edit2, RefreshCw, Grid3X3, List, Search } from 'lucide-react';
 import { Product } from '@/types/stock';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -51,6 +51,7 @@ export function LocationView({ products, searchQuery, onViewProduct }: LocationV
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [localSearch, setLocalSearch] = useState('');
 
   // Group products by location
   const locationGroups = products.reduce((groups, product) => {
@@ -71,10 +72,14 @@ export function LocationView({ products, searchQuery, onViewProduct }: LocationV
   // Add all product locations (in case some aren't in shelves table)
   Object.keys(locationGroups).forEach(loc => allLocations.add(loc));
 
+  // Combine external searchQuery with local search
+  const effectiveSearch = localSearch.trim() || searchQuery;
+
   // Filter locations based on search
   const filteredLocations = Array.from(allLocations)
     .filter(location => {
-      const query = searchQuery.toLowerCase();
+      const query = effectiveSearch.toLowerCase();
+      if (!query) return true;
       const locationProducts = locationGroups[location] || [];
       return (
         location.toLowerCase().includes(query) ||
@@ -89,7 +94,7 @@ export function LocationView({ products, searchQuery, onViewProduct }: LocationV
   // Reset visible count when search changes
   React.useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [searchQuery]);
+  }, [effectiveSearch]);
 
   const displayedLocations = filteredLocations.slice(0, visibleCount);
   const hasMore = visibleCount < filteredLocations.length;
@@ -139,9 +144,19 @@ export function LocationView({ products, searchQuery, onViewProduct }: LocationV
 
   return (
     <div className="space-y-6 animate-slide-up">
-      {/* Header with Refresh + View Toggle + Add Button */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      {/* Header with Search + Refresh + View Toggle + Add Button */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        {/* Search Input */}
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            value={localSearch}
+            onChange={(e) => setLocalSearch(e.target.value)}
+            placeholder="Raf veya ürün ara..."
+            className="pl-9 h-10"
+          />
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
           <Button
             variant="outline"
             size="sm"
@@ -166,13 +181,14 @@ export function LocationView({ products, searchQuery, onViewProduct }: LocationV
               <Grid3X3 className="w-4 h-4" />
             </button>
           </div>
+          {canManageShelves && (
+            <Button onClick={() => setShowAddDialog(true)} className="gap-2">
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Yeni Raf Ekle</span>
+              <span className="sm:hidden">Ekle</span>
+            </Button>
+          )}
         </div>
-        {canManageShelves && (
-          <Button onClick={() => setShowAddDialog(true)} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Yeni Raf Ekle
-          </Button>
-        )}
       </div>
 
       {/* Counter */}

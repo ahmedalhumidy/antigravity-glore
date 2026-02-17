@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Activity,
 } from 'lucide-react';
+import { ThemeToggle } from './ThemeToggle';
 import { GlobalScannerButton } from '@/modules/globalScanner/GlobalScannerButton';
 import { Product } from '@/types/stock';
 import { useNavigate } from 'react-router-dom';
@@ -297,6 +298,7 @@ export function SmartTopBar({
                 onRestockProduct={(p) => onStockAction(p, 'giris')}
                 onViewProduct={(id) => search.openProduct(id)}
               />
+              <ThemeToggle />
               <div className="hidden lg:flex items-center gap-1 px-2 py-1 rounded-md bg-muted/50" title="Bugünkü işlemler">
                 <Activity className="w-3.5 h-3.5 text-muted-foreground" />
                 <span className="text-[10px] font-semibold text-muted-foreground">{ctx.sessionCount}</span>
