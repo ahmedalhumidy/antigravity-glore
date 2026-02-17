@@ -1,53 +1,39 @@
+# Fix "numeric field overflow" Errors in Barcode Catalog Import
 
+## Problem
 
-# Import Barcode Product Catalog for Production Recognition
+The import completed but 419 products failed with "numeric field overflow" on the `sale_price` column. The price parsing logic incorrectly handles Turkish number formatting (e.g., `1.500,00` becomes `150000` instead of `1500.00`).
 
-## What This Does
-When you scan a barcode in the factory (production stages or anywhere in the app), the system currently doesn't recognize these products because they aren't in the database. This plan will import the entire product catalog from your Excel file so every barcode becomes "known" to the system.
+## Root Cause
 
-## How It Works
+Line 94 in `ImportBarcodeCatalog.tsx`:
 
-1. **Copy the Excel file** into the project as a data source
-2. **Build an import page** (`/import-barcode-catalog`) that reads the Excel and loads products into the database
-3. **Only import active products** ("Kullanımda") that have valid barcodes -- inactive ones and those without barcodes are skipped
-4. **Smart matching**: If a product code already exists in the database, it updates the barcode. If it's new, it creates the product
-5. **After import**: Scanning any barcode from this list will instantly recognize the product -- in production stages, global scan, or anywhere else
+```javascript
+parseFloat(String(row[12] || '0').replace(/[.,]/g, (m) => m === ',' ? '.' : ''))
+```
 
-## What Gets Imported Per Product
-- Product code (Urun Kodu)
-- Product name (Urun Adi)
-- Barcode
-- Category from "Ozel Kod" column
-- Unit type (ADET/SET)
-- Prices (sale price)
-- Stock starts at 0 (since goods aren't physically there yet)
+This removes ALL dots (thousand separators) and converts commas to dots. But for values like `1.234.567,89`, it produces `1234567.89` which may overflow, and for malformed entries it can produce astronomically large numbers.
 
-## User Experience
-- Navigate to the import page
-- Click one button to start
-- See progress bar and live log
-- Summary shows: how many products created, updated, skipped
+## Fix
 
----
+### File: `src/pages/ImportBarcodeCatalog.tsx`
 
-## Technical Details
+1. **Fix price parsing** -- properly handle Turkish number format by:
+  - First removing dots (thousand separators)
+  - Then replacing comma with dot (decimal separator)
+  - Capping the value to a safe maximum (e.g., 999999.99) to prevent overflow
+2. **Add error recovery per-row** -- wrap individual row processing in try/catch so one bad row doesn't fail the entire batch
 
-### File: `public/imports/barcode-catalog.xlsx`
-- Copy the uploaded Excel file to this location
+### Technical Change (line 94):
 
-### File: `src/pages/ImportBarcodeCatalog.tsx` (new)
-- Parse the Excel using the `xlsx` library (already installed)
-- Extract columns: Kullanim (col 0), Urun Kodu (col 1), Urun Adi (col 2), Barkod (col 3), Ana Birim (col 8), Satis Fiyati (col 12), Ozel Kod (col 13), Ozel Kod2 (col 14), Son Alis status (col 18)
-- Filter: only rows where Kullanim = "Kullanımda" AND Barkod is not "Barkod Yok"
-- Upsert into `products` table matching by `urun_kodu`:
-  - New products: insert with `mevcut_stok = 0`, `raf_konum = 'Genel'`
-  - Existing products: update `barkod` field if different
-- Batch insert in groups of 50 for performance
+```javascript
+// Before (broken):
+parseFloat(String(row[12] || '0').replace(/[.,]/g, (m) => m === ',' ? '.' : ''))
 
-### File: `src/App.tsx`
-- Add route `/import-barcode-catalog` pointing to the new page
+// After (correct Turkish number parsing):
+const rawPrice = String(row[12] || '0').replace(/\./g, '').replace(',', '.');
+const parsed = parseFloat(rawPrice) || 0;
+const satisFiyati = parsed > 999999 ? 0 : parsed;
+```
 
-### No database schema changes needed
-- Products table already has all required columns (`urun_kodu`, `urun_adi`, `barkod`, etc.)
-- The `findByBarcode()` function in `globalSearch.ts` already searches by `barkod` and `urun_kodu`, so imported products will be automatically recognized everywhere
-
+3. **Add a "re-run" capability** -- after fixing, user can simply click the import button again. Existing products will be matched by `urun_kodu` and skipped (or barcode-updated), so only the 419 failed ones will be retried as new inserts. I dont need the price 
