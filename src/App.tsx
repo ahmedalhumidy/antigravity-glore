@@ -9,7 +9,7 @@ import { PermissionsProvider } from "@/hooks/usePermissions";
 import { FeatureFlagsProvider } from "@/hooks/useFeatureFlags";
 import { SystemSettingsProvider } from "@/hooks/useSystemSettings";
 import { WorkingContextProvider } from "@/hooks/useWorkingContext";
-import { SearchControllerProvider, useSearchController } from "@/contexts/SearchController";
+import { SearchControllerProvider, useSearchController, SearchDebugOverlay } from "@/contexts/SearchController";
 import { PWAUpdateNotification } from "@/components/pwa/PWAUpdateNotification";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { ProductIntelligenceDrawer } from "@/components/products/ProductIntelligenceDrawer";
@@ -206,8 +206,9 @@ const App = () => (
                   <WorkingContextProvider>
                     <SearchControllerProvider>
                       <AppRoutes />
-                      <GlobalProductDrawer />
-                      <PWAUpdateNotification />
+                       <GlobalProductDrawer />
+                       <SearchDebugOverlay />
+                       <PWAUpdateNotification />
                       <OfflineIndicator />
                     </SearchControllerProvider>
                   </WorkingContextProvider>
