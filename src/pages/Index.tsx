@@ -21,6 +21,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { useMovements } from "@/hooks/useMovements";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentView } from "@/hooks/useCurrentView";
+import { useSearchController } from "@/contexts/SearchController";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { LogOut } from "lucide-react";
@@ -91,6 +92,7 @@ function SkeletonLoader() {
 
 const Index = () => {
   const { signOut, user } = useAuth();
+  const searchCtrl = useSearchController();
   const {
     products,
     loading: productsLoading,
@@ -107,7 +109,6 @@ const Index = () => {
   // Modals
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [detailDrawerProduct, setDetailDrawerProduct] = useState<Product | null>(null);
   const [stockActionModalOpen, setStockActionModalOpen] = useState(false);
   const [stockActionType, setStockActionType] = useState<"giris" | "cikis">("giris");
   const [pendingBarcode, setPendingBarcode] = useState<string | undefined>();
@@ -176,50 +177,8 @@ const Index = () => {
     refreshProducts();
   };
 
-  const handleViewProduct = async (id: string) => {
-    let product = products.find((p) => p.id === id);
-    if (!product) {
-      try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .eq('id', id)
-          .maybeSingle();
-        if (error) {
-          console.error('[ViewProduct] DB fetch error:', error);
-          toast.error('Ürün bilgisi alınamadı');
-          return;
-        }
-        if (data) {
-          product = {
-            id: data.id,
-            urunKodu: data.urun_kodu,
-            urunAdi: data.urun_adi,
-            rafKonum: data.raf_konum,
-            barkod: data.barkod || undefined,
-            acilisStok: data.acilis_stok,
-            toplamGiris: data.toplam_giris,
-            toplamCikis: data.toplam_cikis,
-            mevcutStok: data.mevcut_stok,
-            setStok: data.set_stok || 0,
-            minStok: data.min_stok,
-            uyari: data.uyari,
-            sonIslemTarihi: data.son_islem_tarihi || undefined,
-            not: data.notes || undefined,
-            category: data.category || undefined,
-          };
-        }
-      } catch (err) {
-        console.error('[ViewProduct] Error:', err);
-        toast.error('Ürün bilgisi alınamadı');
-        return;
-      }
-    }
-    if (product) {
-      setDetailDrawerProduct(product);
-    } else {
-      toast.error('Ürün bulunamadı');
-    }
+  const handleViewProduct = (id: string) => {
+    searchCtrl.openProduct(id);
   };
 
   const handleScanProductFound = (product: Product) => {
@@ -308,7 +267,6 @@ const Index = () => {
           onProductFound={handleScanProductFound}
           onBarcodeNotFound={handleScanBarcodeNotFound}
           onStockAction={handleStockAction}
-          onViewProduct={handleViewProduct}
           onStockUpdated={refreshProducts}
           onOpenScan={() => setScanModalOpen(true)}
           onOpenTransfer={() => setShowTransfer(true)}
@@ -502,12 +460,12 @@ const Index = () => {
       />
 
       <ProductIntelligenceDrawer
-        product={detailDrawerProduct}
-        open={!!detailDrawerProduct}
-        onClose={() => setDetailDrawerProduct(null)}
+        product={searchCtrl.selectedProduct}
+        open={searchCtrl.drawerOpen}
+        onClose={() => searchCtrl.closeDrawer()}
         onSave={async (p) => { await updateProduct(p); }}
         onDelete={async (id) => { await deleteProduct(id); }}
-        onStockAction={(p, type) => { setDetailDrawerProduct(null); handleStockAction(p, type); }}
+        onStockAction={(p, type) => { searchCtrl.closeDrawer(); handleStockAction(p, type); }}
         products={products}
         onTransferred={refreshProducts}
       />
