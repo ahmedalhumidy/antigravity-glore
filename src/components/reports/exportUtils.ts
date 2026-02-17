@@ -1,25 +1,20 @@
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-
 interface ExportColumn {
   header: string;
   key: string;
   width?: number;
 }
 
-export function exportToExcel(
+export async function exportToExcel(
   data: Record<string, any>[],
   columns: ExportColumn[],
   filename: string
 ) {
-  // Prepare data with headers
+  const XLSX = await import('xlsx');
+  
   const headers = columns.map(c => c.header);
   const rows = data.map(row => columns.map(c => row[c.key] ?? ''));
   
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-  
-  // Set column widths
   ws['!cols'] = columns.map(c => ({ wch: c.width || 15 }));
   
   const wb = XLSX.utils.book_new();
@@ -28,23 +23,23 @@ export function exportToExcel(
   XLSX.writeFile(wb, `${filename}.xlsx`);
 }
 
-export function exportToPDF(
+export async function exportToPDF(
   data: Record<string, any>[],
   columns: ExportColumn[],
   filename: string,
   title: string
 ) {
+  const { default: jsPDF } = await import('jspdf');
+  const { default: autoTable } = await import('jspdf-autotable');
+  
   const doc = new jsPDF();
   
-  // Add title
   doc.setFontSize(16);
   doc.text(title, 14, 20);
   
-  // Add date
   doc.setFontSize(10);
   doc.text(`Oluşturulma: ${new Date().toLocaleDateString('tr-TR')}`, 14, 28);
   
-  // Prepare table data
   const headers = columns.map(c => c.header);
   const rows = data.map(row => columns.map(c => String(row[c.key] ?? '')));
   
