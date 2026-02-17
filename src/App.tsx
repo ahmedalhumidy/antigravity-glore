@@ -20,6 +20,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const Install = lazy(() => import("./pages/Install"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const ImportInventory = lazy(() => import("./pages/ImportInventory"));
+const ImportBarcodeCatalog = lazy(() => import("./pages/ImportBarcodeCatalog"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 
 // Magaza (public storefront)
@@ -169,6 +170,7 @@ const AppRoutes = () => (
        <Route path="/magaza/sepet" element={<QuoteCartProvider><QuoteCartPage /></QuoteCartProvider>} />
        <Route path="/galeri/urun/:slug" element={<QuoteCartProvider><GaleriDetailPage /></QuoteCartProvider>} />
        <Route path="/import-inventory" element={<ProtectedRoute><ImportInventory /></ProtectedRoute>} />
+       <Route path="/import-barcode-catalog" element={<ProtectedRoute><ImportBarcodeCatalog /></ProtectedRoute>} />
        <Route path="/install" element={<Install />} />
        <Route path="/home" element={<LandingPage />} />
       <Route path="*" element={<NotFound />} />
