@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { GlobalScannerButton } from '@/modules/globalScanner/GlobalScannerButton';
 import { Product } from '@/types/stock';
+import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useWorkingContext } from '@/hooks/useWorkingContext';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
@@ -164,12 +165,38 @@ export function SmartTopBar({
     }
   }, [onAddProduct, onOpenTransfer, navigate]);
 
-  const handleResultClick = useCallback((result: SearchResult) => {
+  const handleResultClick = useCallback(async (result: SearchResult) => {
     setQuery('');
     setShowDropdown(false);
     setMobileInputExpanded(false);
     if (result.type === 'product') {
-      const product = products.find(p => p.id === result.id);
+      let product = products.find(p => p.id === result.id);
+      if (!product) {
+        const { data } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', result.id)
+          .maybeSingle();
+        if (data) {
+          product = {
+            id: data.id,
+            urunKodu: data.urun_kodu,
+            urunAdi: data.urun_adi,
+            rafKonum: data.raf_konum,
+            barkod: data.barkod || undefined,
+            acilisStok: data.acilis_stok,
+            toplamGiris: data.toplam_giris,
+            toplamCikis: data.toplam_cikis,
+            mevcutStok: data.mevcut_stok,
+            setStok: data.set_stok || 0,
+            minStok: data.min_stok,
+            uyari: data.uyari,
+            sonIslemTarihi: data.son_islem_tarihi || undefined,
+            not: data.notes || undefined,
+            category: data.category || undefined,
+          };
+        }
+      }
       if (product) {
         ctx.setProduct({ id: product.id, name: product.urunAdi });
         onProductFound(product);
