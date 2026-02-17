@@ -1,47 +1,50 @@
 
 
-## Plan: Convert Mobile Search from Bottom Sheet to Anchored Dropdown
+## Plan: Fix Scroll Issues in Stock Entry (Movements Page + Main Page)
 
-### What Changes
-The mobile search results currently appear as a bottom sheet (sliding up from the bottom). This will be changed to show results as a dropdown directly under the top search bar -- identical behavior to desktop, just touch-optimized.
+### Root Cause Analysis
 
-### Single File Change
+Two separate scroll problems were identified:
 
-**`src/components/layout/SearchPalette.tsx`**
+1. **Movements Page (MovementForm)**: The product selection dropdown (Popover with CommandList) and shelf selector dropdown open inside Radix Popovers. On mobile, these Popovers can block touch-based scrolling inside their content. The product combobox CommandList has a default `max-h-[300px]` but may not respond to touch scroll properly on some devices.
 
-Remove the mobile-specific bottom sheet branch entirely. Both mobile and desktop will use the same anchored dropdown approach:
+2. **Main Page (StockActionModal)**: The Dialog uses `fixed` positioning centered on screen with NO `max-height` or `overflow-y: auto`. When the QuickStockInput form expands (showing quantity inputs, shelf selector, notes, action buttons), the content exceeds the mobile viewport height and cannot scroll.
 
-- Remove the `isMobile` conditional that renders the bottom sheet
-- Remove all drag-to-close logic (touchStart/touchMove/touchEnd handlers, dragOffset state)
-- Remove the `useIsMobile` import (no longer needed)
-- Use one unified rendering path: a portal with a backdrop + a dropdown anchored to the `anchorRef`
-- The dropdown position is calculated from `anchorRef.getBoundingClientRect()` for both mobile and desktop
-- On mobile, the dropdown stretches full width with small margins (8px each side)
+---
 
-Dropdown styling:
-- `max-height: 60vh` with internal scroll (`overflow-y: auto`, `overscroll-behavior: contain`)
-- Rounded corners, shadow, solid `bg-popover` background
-- Fade-in animation only (no slide-from-bottom)
-- Touch targets remain 44px minimum height
-- Backdrop is a fixed full-screen transparent layer for click-outside-to-close
+### Changes
+
+**1. `src/components/ui/dialog.tsx`** -- Add scrollability to DialogContent
+- Add `max-h-[85vh]` and `overflow-y-auto` to DialogContent so tall content scrolls on mobile
+- Add `overscroll-behavior: contain` to prevent background scroll bleed
+- This fixes StockActionModal, BarcodeResultModal, and all other dialogs globally
+
+**2. `src/components/movements/MovementForm.tsx`** -- Fix product list scroll in Popover
+- Add `onOpenAutoFocus={(e) => e.preventDefault()}` to the PopoverContent (already done on ShelfSelector, missing here)
+- Add explicit touch-scroll CSS to the CommandList: `overscroll-contain` and `-webkit-overflow-scrolling: touch`
+
+**3. `src/components/ui/command.tsx`** -- Improve touch scroll on CommandList
+- Add `overscroll-behavior: contain` and `-webkit-overflow-scrolling: touch` as inline styles on CommandList to ensure mobile touch scrolling works in all comboboxes/selectors
+
+---
 
 ### Technical Details
 
-The position calculation runs in a `useEffect` whenever the palette is visible:
+DialogContent change (the key fix):
 ```text
-const rect = anchorRef.current.getBoundingClientRect();
-top = rect.bottom + 4px
-left = rect.left (desktop) or 8px (mobile via clamping)
-width = rect.width (desktop) or calc(100vw - 16px) (mobile)
+Current:  fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] ...
+Updated:  fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] max-h-[85vh] overflow-y-auto overscroll-contain ...
 ```
 
-Z-index layering stays unchanged:
-- Backdrop: `Z.paletteBackdrop` (400)
-- Dropdown: `Z.palette` (410)
-- Toasts remain above at `Z.toast` (500)
+CommandList touch scroll:
+```text
+Current:  max-h-[300px] overflow-y-auto overflow-x-hidden
+Updated:  max-h-[300px] overflow-y-auto overflow-x-hidden overscroll-contain
++ inline style: { WebkitOverflowScrolling: 'touch' }
+```
 
-Removed code:
-- `dragStartY` ref, `dragOffset` state
-- `handleTouchStart`, `handleTouchMove`, `handleTouchEnd` functions
-- The entire mobile bottom-sheet portal block (lines 207-254)
-- `useIsMobile` import
+MovementForm PopoverContent:
+```text
+Add: onOpenAutoFocus={(e) => e.preventDefault()}
+```
+
