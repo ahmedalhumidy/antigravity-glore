@@ -459,16 +459,7 @@ const Index = () => {
         actionType={stockActionType}
       />
 
-      <ProductIntelligenceDrawer
-        product={searchCtrl.selectedProduct}
-        open={searchCtrl.drawerOpen}
-        onClose={() => searchCtrl.closeDrawer()}
-        onSave={async (p) => { await updateProduct(p); }}
-        onDelete={async (id) => { await deleteProduct(id); }}
-        onStockAction={(p, type) => { searchCtrl.closeDrawer(); handleStockAction(p, type); }}
-        products={products}
-        onTransferred={refreshProducts}
-      />
+      {/* Drawer is now rendered globally in App.tsx via GlobalProductDrawer */}
 
       <TransferShelfModal
         isOpen={showTransfer}

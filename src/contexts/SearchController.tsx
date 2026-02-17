@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect, ReactNode } from 'react';
 import { Product } from '@/types/stock';
 import { supabase } from '@/integrations/supabase/client';
-import { globalSearch, SearchResult, findByBarcode } from '@/lib/globalSearch';
+import { globalSearch, SearchResult } from '@/lib/globalSearch';
+import { toast } from 'sonner';
 
 interface SearchControllerState {
   query: string;
@@ -10,13 +11,14 @@ interface SearchControllerState {
   isOpen: boolean;
   selectedProduct: Product | null;
   drawerOpen: boolean;
+  drawerLoading: boolean;
 }
 
 interface SearchControllerActions {
   setQuery: (text: string) => void;
   openDropdown: () => void;
   closeDropdown: () => void;
-  openProduct: (id: string) => Promise<void>;
+  openProduct: (id: string) => void;
   closeDrawer: () => void;
   clear: () => void;
 }
@@ -52,7 +54,9 @@ export function SearchControllerProvider({ children }: { children: ReactNode }) 
   const [isOpen, setIsOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerLoading, setDrawerLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const requestIdRef = useRef(0);
 
   // Debounced search
   useEffect(() => {
@@ -68,10 +72,19 @@ export function SearchControllerProvider({ children }: { children: ReactNode }) 
 
     setLoading(true);
     debounceRef.current = setTimeout(async () => {
-      const res = await globalSearch(trimmed);
-      setResults(res);
-      setIsOpen(true);
-      setLoading(false);
+      try {
+        console.log('[SearchController] searching:', trimmed);
+        const res = await globalSearch(trimmed);
+        console.log('[SearchController] results:', res.length);
+        setResults(res);
+        setIsOpen(true);
+      } catch (err) {
+        console.error('[SearchController] search error:', err);
+        toast.error('Arama hatası');
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
     }, 250);
 
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
@@ -89,34 +102,47 @@ export function SearchControllerProvider({ children }: { children: ReactNode }) 
     setResults([]);
   }, []);
 
-  const openProduct = useCallback(async (id: string) => {
-    // Close search immediately
+  const openProduct = useCallback((id: string) => {
+    // 1) Close dropdown immediately
     setIsOpen(false);
     setQueryState('');
     setResults([]);
 
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
+    // 2) Open drawer immediately (skeleton state)
+    const reqId = ++requestIdRef.current;
+    setDrawerLoading(true);
+    setDrawerOpen(true);
+    setSelectedProduct(null);
 
-      if (error || !data) {
-        console.error('[SearchController] openProduct error:', error);
-        return;
-      }
+    // 3) Fetch product
+    console.log('[SearchController] openProduct:', id);
+    supabase
+      .from('products')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        // Anti-race: only apply if this is still the latest request
+        if (requestIdRef.current !== reqId) return;
 
-      setSelectedProduct(mapRow(data));
-      setDrawerOpen(true);
-    } catch (err) {
-      console.error('[SearchController] openProduct error:', err);
-    }
+        if (error || !data) {
+          console.error('[SearchController] openProduct fetch error:', error);
+          toast.error('Ürün yüklenemedi');
+          setDrawerOpen(false);
+          setDrawerLoading(false);
+          return;
+        }
+
+        console.log('[SearchController] product loaded:', data.urun_adi);
+        setSelectedProduct(mapRow(data));
+        setDrawerLoading(false);
+      });
   }, []);
 
   const closeDrawer = useCallback(() => {
     setDrawerOpen(false);
     setSelectedProduct(null);
+    setDrawerLoading(false);
   }, []);
 
   const clear = useCallback(() => {
@@ -128,7 +154,7 @@ export function SearchControllerProvider({ children }: { children: ReactNode }) 
 
   return (
     <SearchControllerContext.Provider value={{
-      query, results, loading, isOpen, selectedProduct, drawerOpen,
+      query, results, loading, isOpen, selectedProduct, drawerOpen, drawerLoading,
       setQuery, openDropdown, closeDropdown, openProduct, closeDrawer, clear,
     }}>
       {children}
