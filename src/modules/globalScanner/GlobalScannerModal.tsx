@@ -157,7 +157,7 @@ export function GlobalScannerModal({ products }: { products: Product[] }) {
 
   return (
     <Dialog open={scannerOpen} onOpenChange={(open) => { if (!open) closeScanner(); }}>
-      <DialogContent className="sm:max-w-lg p-0 gap-0 max-h-[90vh] overflow-hidden">
+      <DialogContent className="sm:max-w-lg p-0 gap-0 max-h-[90vh] overflow-y-auto overscroll-contain">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold flex items-center gap-2">
