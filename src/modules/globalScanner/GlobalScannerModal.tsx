@@ -105,7 +105,21 @@ export function GlobalScannerModal({ products }: { products: Product[] }) {
     const result = await findByBarcode(barcode);
 
     if (result.type === 'product' && result.id) {
-      const product = products.find(p => p.id === result.id);
+      const product = products.find(p => p.id === result.id) || (result.data ? {
+        id: result.data.id,
+        urunKodu: result.data.urun_kodu,
+        urunAdi: result.data.urun_adi,
+        rafKonum: result.data.raf_konum || 'Genel',
+        barkod: result.data.barkod || undefined,
+        acilisStok: result.data.acilis_stok || 0,
+        toplamGiris: result.data.toplam_giris || 0,
+        toplamCikis: result.data.toplam_cikis || 0,
+        mevcutStok: result.data.mevcut_stok || 0,
+        setStok: result.data.set_stok || 0,
+        minStok: result.data.min_stok || 0,
+        uyari: result.data.uyari || false,
+        category: result.data.category || undefined,
+      } as Product : null);
       await logScan(barcode, 'found', result.id);
 
       if (batchMode && product) {

@@ -46,7 +46,21 @@ export function GlobalScanModal({ products, onProductFound, onBarcodeNotFound, o
       setBarcode('');
 
       if (result.type === 'product') {
-        const product = products.find(p => p.id === result.id);
+        const product = products.find(p => p.id === result.id) || (result.data ? {
+          id: result.data.id,
+          urunKodu: result.data.urun_kodu,
+          urunAdi: result.data.urun_adi,
+          rafKonum: result.data.raf_konum || 'Genel',
+          barkod: result.data.barkod || undefined,
+          acilisStok: result.data.acilis_stok || 0,
+          toplamGiris: result.data.toplam_giris || 0,
+          toplamCikis: result.data.toplam_cikis || 0,
+          mevcutStok: result.data.mevcut_stok || 0,
+          setStok: result.data.set_stok || 0,
+          minStok: result.data.min_stok || 0,
+          uyari: result.data.uyari || false,
+          category: result.data.category || undefined,
+        } as Product : null);
         if (product) {
           onProductFound(product);
           toast.success(`Ürün bulundu: ${product.urunAdi}`);
@@ -85,7 +99,21 @@ export function GlobalScanModal({ products, onProductFound, onBarcodeNotFound, o
         setOpen(false);
         setBarcode('');
         if (result.type === 'product') {
-          const product = products.find(p => p.id === result.id);
+          const product = products.find(p => p.id === result.id) || (result.data ? {
+            id: result.data.id,
+            urunKodu: result.data.urun_kodu,
+            urunAdi: result.data.urun_adi,
+            rafKonum: result.data.raf_konum || 'Genel',
+            barkod: result.data.barkod || undefined,
+            acilisStok: result.data.acilis_stok || 0,
+            toplamGiris: result.data.toplam_giris || 0,
+            toplamCikis: result.data.toplam_cikis || 0,
+            mevcutStok: result.data.mevcut_stok || 0,
+            setStok: result.data.set_stok || 0,
+            minStok: result.data.min_stok || 0,
+            uyari: result.data.uyari || false,
+            category: result.data.category || undefined,
+          } as Product : null);
           if (product) {
             onProductFound(product);
             toast.success(`Ürün bulundu: ${product.urunAdi}`);

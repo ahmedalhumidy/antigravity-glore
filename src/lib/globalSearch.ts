@@ -81,7 +81,7 @@ export async function findByBarcode(barcode: string): Promise<{ type: 'product' 
   // Check products first
   const { data: product } = await supabase
     .from('products')
-    .select('id, urun_adi, urun_kodu, barkod')
+    .select('id, urun_adi, urun_kodu, barkod, raf_konum, mevcut_stok, set_stok, min_stok, acilis_stok, toplam_giris, toplam_cikis, uyari, son_islem_tarihi, notes, category')
     .eq('is_deleted', false)
     .or(`barkod.eq.${trimmed},urun_kodu.eq.${trimmed}`)
     .limit(1)
