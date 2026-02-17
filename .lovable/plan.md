@@ -1,49 +1,53 @@
 
 
-# Fix Swipe Gestures on Product Cards (Mobile)
+# Import Barcode Product Catalog for Production Recognition
 
-## Problems Identified
+## What This Does
+When you scan a barcode in the factory (production stages or anywhere in the app), the system currently doesn't recognize these products because they aren't in the database. This plan will import the entire product catalog from your Excel file so every barcode becomes "known" to the system.
 
-1. **Swipe icons not clearly visible**: The Giris/Cikis icons and text are hidden behind the card during swipe. The background layer uses low-opacity colors (`bg-success/20`, `bg-destructive/20`) that blend into the dark theme, making them nearly invisible.
+## How It Works
 
-2. **Swipe opens a modal instead of acting directly**: When the swipe threshold is reached, `onStockAction` is called which sets state to open `StockActionModal` -- a full modal dialog. The user expects the swipe to reveal inline action buttons (like iOS-style swipe actions) that stay visible until tapped, rather than immediately launching a modal.
+1. **Copy the Excel file** into the project as a data source
+2. **Build an import page** (`/import-barcode-catalog`) that reads the Excel and loads products into the database
+3. **Only import active products** ("Kullanımda") that have valid barcodes -- inactive ones and those without barcodes are skipped
+4. **Smart matching**: If a product code already exists in the database, it updates the barcode. If it's new, it creates the product
+5. **After import**: Scanning any barcode from this list will instantly recognize the product -- in production stages, global scan, or anywhere else
 
-## Solution
+## What Gets Imported Per Product
+- Product code (Urun Kodu)
+- Product name (Urun Adi)
+- Barcode
+- Category from "Ozel Kod" column
+- Unit type (ADET/SET)
+- Prices (sale price)
+- Stock starts at 0 (since goods aren't physically there yet)
 
-### 1. Redesign Swipe Reveal Layer (ProductList.tsx - SwipeableProductCard)
+## User Experience
+- Navigate to the import page
+- Click one button to start
+- See progress bar and live log
+- Summary shows: how many products created, updated, skipped
 
-Make the background action indicators much more prominent:
-- Increase background opacity: `bg-success` and `bg-destructive` at higher visibility
-- Make icons larger (w-8 h-8) with bold white color for contrast
-- Show label text ("Giris" / "Cikis") in white bold, always visible during swipe
-- Position icons to stay anchored at the edges so they "peek out" as the card slides
-
-### 2. Change Swipe Behavior to Inline Actions (not Modal)
-
-Instead of immediately calling `onStockAction` (which opens a modal), the swipe will:
-- When swiped past threshold: **lock the card** in the swiped position, revealing action buttons
-- The revealed buttons (Giris / Cikis) are tappable and THEN trigger `onStockAction`
-- Tapping elsewhere or swiping back resets the card to its original position
-- This gives the user a clear "peek and confirm" interaction pattern
+---
 
 ## Technical Details
 
-### File: `src/hooks/useSwipeGesture.tsx`
-- Add a `locked` state that holds the card offset at a fixed position (e.g., 80px) after threshold is passed
-- Add a `resetSwipe()` function to allow external reset
-- When locked, the card stays translated and the action area is fully visible
+### File: `public/imports/barcode-catalog.xlsx`
+- Copy the uploaded Excel file to this location
 
-### File: `src/components/products/ProductList.tsx` (SwipeableProductCard)
-- Redesign the background reveal layer:
-  - Left side (swipe right): solid green background with large white Plus icon and "Giris" text
-  - Right side (swipe left): solid red background with large white Minus icon and "Cikis" text
-- When card is locked in swiped position, the revealed area becomes a clickable button
-- Clicking the revealed action button calls `onStockAction` and resets the swipe
-- Clicking the card itself (when not swiping) still navigates to product detail
+### File: `src/pages/ImportBarcodeCatalog.tsx` (new)
+- Parse the Excel using the `xlsx` library (already installed)
+- Extract columns: Kullanim (col 0), Urun Kodu (col 1), Urun Adi (col 2), Barkod (col 3), Ana Birim (col 8), Satis Fiyati (col 12), Ozel Kod (col 13), Ozel Kod2 (col 14), Son Alis status (col 18)
+- Filter: only rows where Kullanim = "Kullanımda" AND Barkod is not "Barkod Yok"
+- Upsert into `products` table matching by `urun_kodu`:
+  - New products: insert with `mevcut_stok = 0`, `raf_konum = 'Genel'`
+  - Existing products: update `barkod` field if different
+- Batch insert in groups of 50 for performance
 
-### Visual Improvements
-- Background: `bg-success` / `bg-destructive` (fully opaque, not transparent)
-- Icons: white, large (w-7 h-7), with text label below or beside
-- Smooth spring-like animation when locking into position
-- Card slightly scales down during active swipe for tactile feedback
+### File: `src/App.tsx`
+- Add route `/import-barcode-catalog` pointing to the new page
+
+### No database schema changes needed
+- Products table already has all required columns (`urun_kodu`, `urun_adi`, `barkod`, etc.)
+- The `findByBarcode()` function in `globalSearch.ts` already searches by `barkod` and `urun_kodu`, so imported products will be automatically recognized everywhere
 
