@@ -69,7 +69,7 @@ export function ScanSessionShelfPicker({ isOpen, onClose, onSelectShelf }: ScanS
             <SelectTrigger>
               <SelectValue placeholder={loading ? 'Yükleniyor...' : 'Raf seçin'} />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-[200px] overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
               {shelves.map(shelf => (
                 <SelectItem key={shelf.id} value={shelf.id}>
                   {shelf.name}
