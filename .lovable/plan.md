@@ -1,54 +1,114 @@
 
 
-## Rebuild: Top Bar Search + Shelf Export Filter
+## Rebuild: Global Search System with SearchController Context
 
-Two issues need fixing:
+### What Changes
 
-### Issue 1: Search results in top bar don't open the Intelligence Drawer on mobile
+The current search system has local state scattered in `SmartTopBar.tsx` with broken mobile event handling. This rebuild creates a centralized `SearchController` context that manages all search state and actions, making search work reliably on all devices.
 
-**Root cause:** The current fix sets `tappingResultRef = true` and then immediately calls `handleResultClick()` which resets it to `false` -- all in the same synchronous `onMouseDown` handler. This makes the ref useless. Additionally, on iOS Safari, `onMouseDown` doesn't always fire reliably for touch events inside scrollable containers.
+### New Files
 
-**Fix:**
-- Remove `tappingResultRef.current = false` from inside `handleResultClick` and `executeCommand` -- the ref should stay `true` until after the blur timer fires
-- Add `onTouchStart` handlers alongside `onMouseDown` for iOS Safari compatibility
-- Reset the ref with a small delay (e.g. 300ms `setTimeout`) after the action completes
-- Alternative simpler approach: skip the ref entirely and use `onMouseDown` with `e.preventDefault()` properly -- the key insight is that `e.preventDefault()` on `onMouseDown` should prevent `onBlur` from firing at all. If that's already being done and still failing on iOS, add `onTouchStart` with the same logic
+**1. `src/contexts/SearchController.tsx`** -- React Context + Provider
 
-**File:** `src/components/layout/SmartTopBar.tsx`
+State managed:
+- `query` -- current search text
+- `results` -- search results from database
+- `loading` -- search in progress
+- `isOpen` -- dropdown visibility
+- `selectedProduct` -- product to show in Intelligence Drawer
+- `drawerOpen` -- whether the drawer is open
 
-Changes:
-- On each result button: keep `onMouseDown` with `e.preventDefault()` but also add `onTouchEnd` as a fallback that calls `handleResultClick(r)` directly
-- In `handleResultClick` and `executeCommand`: remove the `tappingResultRef.current = false` line (not needed since these functions already close the dropdown explicitly)
-- Simplify the `onBlur` handler -- since `e.preventDefault()` on mousedown should prevent blur, add a guard that checks if the dropdown is still logically needed
+Actions:
+- `setQuery(text)` -- updates query, triggers debounced search
+- `openDropdown()` / `closeDropdown()` -- control dropdown
+- `openProduct(id)` -- fetches product from DB, opens Intelligence Drawer
+- `clear()` -- resets everything
 
-### Issue 2: "Raf" (Shelf filter) button not visible next to Excel export
+The `openProduct` function will fetch the product directly from the database (like `handleViewProduct` does now in Index.tsx), so it works from any page without needing the products array.
 
-**Root cause:** The code exists in `ProductList.tsx` (lines 245-281) but may not be rendering due to the `shelves` array being empty (loading state) or a build sync issue.
+### Modified Files
 
-**Fix:**
-- Add a loading check -- show the Raf button even when shelves are loading (with a spinner or disabled state)
-- Add a `ScrollArea` inside the popover for better mobile UX with many shelves
-- Add a search/filter within the shelf list for users with many shelves
-- Ensure the Popover renders correctly on mobile by setting `modal={true}` on the Popover component
+**2. `src/App.tsx`** -- Wrap app with `SearchControllerProvider` (inside `WorkingContextProvider`)
 
-**File:** `src/components/products/ProductList.tsx`
+**3. `src/components/layout/SmartTopBar.tsx`** -- Complete rewrite of search section
 
-Changes:
-- Add `modal={true}` to `<Popover>` to ensure it works on mobile
-- Keep the Raf button visible always, show "Yükleniyor..." inside popover if shelves are still loading
-- Add a search input inside the shelf popover for filtering shelves by name
+Remove:
+- All local search state (`query`, `results`, `showDropdown`, `searching`, `commandResults`)
+- `tappingResultRef` hack
+- `onBlur` timer logic
+- `globalSearch` import and usage
 
-### Technical Summary
+Replace with:
+- `useSearchController()` hook for all search state/actions
+- Result buttons use `role="option"` with `onPointerDown` (fires on both mouse and touch)
+- `onPointerDown` calls `e.preventDefault()` to prevent blur, then calls `openProduct(id)`
+- No blur-based dropdown closing -- instead use a click-outside overlay (already exists at line 488-493) as the only close mechanism
+- Remove `onBlur` handler entirely from the input
+
+This is the core mobile fix: `onPointerDown` with `preventDefault()` is the correct cross-browser solution. It fires before `blur` on all platforms including iOS Safari.
+
+**4. `src/pages/Index.tsx`** -- Simplify
+
+Remove:
+- `detailDrawerProduct` state (moved to SearchController)
+- `handleViewProduct` function (moved to SearchController's `openProduct`)
+
+Keep the `ProductIntelligenceDrawer` rendering but wire it to the SearchController context instead.
+
+Other callers of `onViewProduct` (Dashboard, AlertList, ProductList, etc.) will call `searchController.openProduct(id)` via the context.
+
+**5. `src/components/products/ProductIntelligenceDrawer.tsx`** -- No changes needed, still receives `product` and `open` as props
+
+### How Mobile Fix Works
 
 ```text
-SmartTopBar.tsx:
-  - Add onTouchEnd to all result buttons as iOS fallback
-  - Remove premature tappingResultRef reset from handleResultClick/executeCommand
-  - Ensure e.preventDefault() on onMouseDown prevents blur properly
+Current (broken):
+  Touch result -> onBlur fires -> setTimeout hides dropdown -> touch never registers
 
-ProductList.tsx:
-  - Add modal={true} to shelf filter Popover
-  - Add search input inside shelf popover
-  - Handle loading state for shelves list
+New approach:
+  Touch result -> onPointerDown fires FIRST (before blur)
+  -> e.preventDefault() stops blur from firing
+  -> openProduct(id) runs immediately
+  -> dropdown closes programmatically after action
 ```
+
+`onPointerDown` is the W3C standard that fires on both mouse and touch, before any focus/blur events. This eliminates the race condition entirely without any ref hacks.
+
+### Search Flow
+
+```text
+User types in SmartTopBar
+  -> SearchController.setQuery(text)
+  -> 250ms debounce
+  -> RPC search_products(query)
+  -> results stored in context
+  -> isOpen = true, dropdown renders
+
+User taps/clicks result
+  -> onPointerDown fires (before blur)
+  -> e.preventDefault() (no blur)
+  -> SearchController.openProduct(id)
+    -> fetch product from DB
+    -> set selectedProduct + drawerOpen = true
+    -> clear query + close dropdown
+  -> ProductIntelligenceDrawer opens
+
+User clicks overlay or presses Escape
+  -> SearchController.closeDropdown()
+```
+
+### Technical Details
+
+The SearchController context will contain:
+- A `useEffect` with debounce for the search RPC call
+- `openProduct` that does the DB fetch + mapping (same logic as current `handleViewProduct` in Index.tsx)
+- The `ProductIntelligenceDrawer` will be rendered once in `Index.tsx`, reading from context
+
+Props removed from SmartTopBar:
+- `products` (no longer needed for search -- DB is queried directly)
+- `onViewProduct` (replaced by context)
+- `onProductFound` (barcode flow stays but uses context)
+
+Props kept on SmartTopBar:
+- `onAddProduct`, `onStockAction`, `onOpenScan`, `onOpenTransfer`, `onBarcodeNotFound`, `onStockUpdated` (action callbacks unrelated to search)
 
