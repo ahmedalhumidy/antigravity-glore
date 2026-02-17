@@ -167,51 +167,16 @@ export function SmartTopBar({
   }, [onAddProduct, onOpenTransfer, navigate]);
 
   const handleResultClick = useCallback(async (result: SearchResult) => {
+    console.log('[Search] handleResultClick called:', result.type, result.id, result.name);
     setQuery('');
     setShowDropdown(false);
     setMobileInputExpanded(false);
+    inputRef.current?.blur();
     try {
       if (result.type === 'product') {
-        let product = products.find(p => p.id === result.id);
-        if (!product) {
-          console.log('[Search] Product not in local cache, fetching from DB:', result.id);
-          const { data, error } = await supabase
-            .from('products')
-            .select('*')
-            .eq('id', result.id)
-            .maybeSingle();
-          if (error) {
-            console.error('[Search] DB fetch error:', error);
-            toast({ title: 'Ürün bilgisi alınamadı', description: error.message, variant: 'destructive' });
-            return;
-          }
-          if (data) {
-            product = {
-              id: data.id,
-              urunKodu: data.urun_kodu,
-              urunAdi: data.urun_adi,
-              rafKonum: data.raf_konum,
-              barkod: data.barkod || undefined,
-              acilisStok: data.acilis_stok,
-              toplamGiris: data.toplam_giris,
-              toplamCikis: data.toplam_cikis,
-              mevcutStok: data.mevcut_stok,
-              setStok: data.set_stok || 0,
-              minStok: data.min_stok,
-              uyari: data.uyari,
-              sonIslemTarihi: data.son_islem_tarihi || undefined,
-              not: data.notes || undefined,
-              category: data.category || undefined,
-            };
-          }
-        }
-        if (product) {
-          ctx.setProduct({ id: product.id, name: product.urunAdi });
-          onProductFound(product);
-        } else {
-          console.warn('[Search] Product not found:', result.id);
-          toast({ title: 'Ürün bulunamadı', variant: 'destructive' });
-        }
+        // Always call onViewProduct which has its own DB fallback
+        console.log('[Search] Calling onViewProduct with id:', result.id);
+        onViewProduct(result.id);
       } else if (result.type === 'shelf') {
         ctx.setShelf({ id: result.id, name: result.name });
         navigate('/');
@@ -220,7 +185,7 @@ export function SmartTopBar({
       console.error('[Search] handleResultClick error:', err);
       toast({ title: 'Bir hata oluştu', variant: 'destructive' });
     }
-  }, [products, onProductFound, ctx, navigate]);
+  }, [onViewProduct, ctx, navigate]);
 
   const handleInputKeyDown = useCallback(async (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && query.trim() && !isCommandMode) {
@@ -350,9 +315,6 @@ export function SmartTopBar({
             {showDropdown && (results.length > 0 || commandResults.length > 0) && (
               <div
                 className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 animate-scale-in"
-                onMouseDown={(e) => e.stopPropagation()}
-                onMouseUp={(e) => e.stopPropagation()}
-                onTouchStart={(e) => e.stopPropagation()}
               >
                 <div className="max-h-64 overflow-y-auto">
                   {/* Command results */}

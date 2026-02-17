@@ -13,9 +13,10 @@ interface HeaderSearchProps {
   onSearchChange: (query: string) => void;
   products: Product[];
   onProductFound: (product: Product) => void;
+  onViewProduct?: (id: string) => void;
 }
 
-export function HeaderSearch({ searchQuery, onSearchChange, products, onProductFound }: HeaderSearchProps) {
+export function HeaderSearch({ searchQuery, onSearchChange, products, onProductFound, onViewProduct }: HeaderSearchProps) {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -88,7 +89,11 @@ export function HeaderSearch({ searchQuery, onSearchChange, products, onProductF
           }
         }
         if (product) {
-          onProductFound(product);
+          if (onViewProduct) {
+            onViewProduct(product.id);
+          } else {
+            onProductFound(product);
+          }
         } else {
           console.warn('[HeaderSearch] Product not found:', result.id);
           toast({ title: 'Ürün bulunamadı', variant: 'destructive' });
