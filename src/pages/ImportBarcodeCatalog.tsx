@@ -19,6 +19,7 @@ interface ImportSummary {
   updated: number;
   duplicateBarcodes: number;
   invalidBarcodes: number;
+  movedBarcodes: number;
   total: number;
 }
 
@@ -59,7 +60,7 @@ export default function ImportBarcodeCatalog() {
     setSummary(null);
     setProgress(0);
 
-    const stats: ImportSummary = { created: 0, updated: 0, duplicateBarcodes: 0, invalidBarcodes: 0, total: 0 };
+    const stats: ImportSummary = { created: 0, updated: 0, duplicateBarcodes: 0, invalidBarcodes: 0, movedBarcodes: 0, total: 0 };
 
     try {
       addLog(`Dosya okunuyor: ${customFile.name}`);
@@ -90,7 +91,7 @@ export default function ImportBarcodeCatalog() {
 
       // Parse all rows
       const dataRows = rows.slice(1);
-      const seenBarcodes = new Map<string, number>(); // barcode -> row index
+      const seenBarcodes = new Map<string, number>();
       const validItems: { urunKodu: string; urunAdi: string; barkod: string | null }[] = [];
 
       for (let i = 0; i < dataRows.length; i++) {
@@ -112,7 +113,7 @@ export default function ImportBarcodeCatalog() {
           if (seenBarcodes.has(barkod)) {
             stats.duplicateBarcodes++;
             addLog(`Satır ${i + 2}: Tekrar barkod "${barkod}" → barkod atlandı`, 'warning');
-            barkod = ''; // clear duplicate barcode but still import the product
+            barkod = '';
           } else {
             seenBarcodes.set(barkod, i);
           }
@@ -139,7 +140,60 @@ export default function ImportBarcodeCatalog() {
         from += 1000;
       }
 
-      // Batch upsert
+      // Fetch existing barcode→product_code mapping to detect barcode conflicts
+      const existingBarcodeMap = new Map<string, string>(); // barcode → urun_kodu
+      from = 0;
+      while (true) {
+        const { data } = await supabase
+          .from('products')
+          .select('urun_kodu, barkod')
+          .eq('is_deleted', false)
+          .not('barkod', 'is', null)
+          .range(from, from + 999);
+        if (!data || data.length === 0) break;
+        data.forEach(p => {
+          if (p.barkod) existingBarcodeMap.set(p.barkod, p.urun_kodu);
+        });
+        if (data.length < 1000) break;
+        from += 1000;
+      }
+
+      addLog(`Mevcut ${existingCodes.size} ürün ve ${existingBarcodeMap.size} barkod tespit edildi.`);
+
+      // Phase 1: Clear barcodes that need to move to a different product
+      const barcodesToMove: { barcode: string; fromKodu: string; toKodu: string }[] = [];
+      for (const item of validItems) {
+        if (!item.barkod) continue;
+        const currentOwner = existingBarcodeMap.get(item.barkod);
+        if (currentOwner && currentOwner !== item.urunKodu) {
+          barcodesToMove.push({ barcode: item.barkod, fromKodu: currentOwner, toKodu: item.urunKodu });
+        }
+      }
+
+      if (barcodesToMove.length > 0) {
+        addLog(`${barcodesToMove.length} barkod başka ürünlerden taşınacak...`, 'warning');
+        // Clear barcodes from old owners in batches
+        const moveBatchSize = 50;
+        for (let i = 0; i < barcodesToMove.length; i += moveBatchSize) {
+          const batch = barcodesToMove.slice(i, i + moveBatchSize);
+          const kodusToClean = batch.map(b => b.fromKodu);
+          const { error } = await supabase
+            .from('products')
+            .update({ barkod: null })
+            .in('urun_kodu', kodusToClean)
+            .eq('is_deleted', false);
+          if (error) {
+            addLog(`Barkod taşıma hatası: ${error.message}`, 'error');
+          } else {
+            stats.movedBarcodes += batch.length;
+            for (const b of batch) {
+              addLog(`Barkod "${b.barcode}": ${b.fromKodu} → ${b.toKodu}`, 'info');
+            }
+          }
+        }
+      }
+
+      // Phase 2: Batch upsert using ON CONFLICT (urun_kodu)
       const batchSize = 50;
       const totalBatches = Math.ceil(validItems.length / batchSize);
 
@@ -161,7 +215,7 @@ export default function ImportBarcodeCatalog() {
           uyari: false,
         }));
 
-        // Count creates vs updates before upserting
+        // Count creates vs updates
         for (const item of batch) {
           if (existingCodes.has(item.urunKodu)) {
             stats.updated++;
@@ -265,6 +319,14 @@ export default function ImportBarcodeCatalog() {
                 <div className="flex items-center gap-2">
                   <XCircle className="w-4 h-4 text-destructive" />
                   <span>Geçersiz barkod: <strong>{summary.invalidBarcodes}</strong></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-orange-500" />
+                  <span>Taşınan barkod: <strong>{summary.movedBarcodes}</strong></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-muted-foreground" />
+                  <span>Toplam: <strong>{summary.total}</strong></span>
                 </div>
               </CardContent>
             </Card>
