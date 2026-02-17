@@ -78,14 +78,28 @@ export async function findByBarcode(barcode: string): Promise<{ type: 'product' 
   const trimmed = barcode.trim();
   if (!trimmed) return { type: 'unknown' };
 
-  // Check products first
-  const { data: product } = await supabase
+  // Check products first - use limit(1) + maybeSingle with error fallback
+  let product: any = null;
+  const productRes = await supabase
     .from('products')
     .select('id, urun_adi, urun_kodu, barkod, raf_konum, mevcut_stok, set_stok, min_stok, acilis_stok, toplam_giris, toplam_cikis, uyari, son_islem_tarihi, notes, category')
     .eq('is_deleted', false)
     .or(`barkod.eq.${trimmed},urun_kodu.eq.${trimmed}`)
     .limit(1)
     .maybeSingle();
+
+  if (productRes.error && productRes.error.code === 'PGRST116') {
+    // Multiple rows returned — fallback to first row
+    const fallback = await supabase
+      .from('products')
+      .select('id, urun_adi, urun_kodu, barkod, raf_konum, mevcut_stok, set_stok, min_stok, acilis_stok, toplam_giris, toplam_cikis, uyari, son_islem_tarihi, notes, category')
+      .eq('is_deleted', false)
+      .or(`barkod.eq.${trimmed},urun_kodu.eq.${trimmed}`)
+      .limit(1);
+    product = fallback.data?.[0] || null;
+  } else {
+    product = productRes.data;
+  }
 
   if (product) return { type: 'product', id: product.id, data: product };
 
