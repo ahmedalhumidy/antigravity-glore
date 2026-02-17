@@ -1,20 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Search,
-  ScanBarcode,
   X,
   Plus,
   Minus,
   ArrowLeftRight,
   ClipboardList,
-  Wifi,
-  WifiOff,
   ChevronRight,
   Activity,
 } from 'lucide-react';
 import { GlobalScannerButton } from '@/modules/globalScanner/GlobalScannerButton';
 import { Product } from '@/types/stock';
-import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useWorkingContext } from '@/hooks/useWorkingContext';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
@@ -23,7 +19,6 @@ import { findByBarcode } from '@/lib/globalSearch';
 import { RadialActionMenu } from './RadialActionMenu';
 import { AlertsPopover } from './AlertsPopover';
 import { cn } from '@/lib/utils';
-import { toast } from '@/hooks/use-toast';
 
 // Command definitions
 const COMMANDS = [
@@ -60,7 +55,7 @@ export function SmartTopBar({
 }: SmartTopBarProps) {
   const navigate = useNavigate();
   const ctx = useWorkingContext();
-  const { pendingActions, syncing } = useOfflineSync();
+  const { pendingActions } = useOfflineSync();
   const search = useSearchController();
   const inputRef = useRef<HTMLInputElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -200,6 +195,20 @@ export function SmartTopBar({
   const showDropdown = search.isOpen && !isCommandMode && search.results.length > 0;
   const showCommandDropdown = isCommandMode && commandResults.length > 0;
 
+  // Shared event handler factory for reliable touch/click on results
+  const makeResultHandlers = (action: () => void) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      action();
+    },
+    onTouchEnd: (e: React.TouchEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      action();
+    },
+  });
+
   return (
     <header
       className="sticky top-0 z-30 safe-area-top"
@@ -215,7 +224,6 @@ export function SmartTopBar({
             "flex items-center gap-1.5 flex-shrink-0 transition-all",
             mobileInputExpanded ? 'hidden md:flex' : 'flex'
           )}>
-            {/* Sync dot */}
             <div className="flex items-center gap-1.5" title={syncLabels[syncState]}>
               <span className={cn('w-2 h-2 rounded-full flex-shrink-0', syncColors[syncState])} />
               <span className="hidden lg:inline text-[10px] font-medium text-muted-foreground">
@@ -223,7 +231,6 @@ export function SmartTopBar({
               </span>
             </div>
 
-            {/* Context chip */}
             {ctx.lastProduct ? (
               <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary max-w-[120px] lg:max-w-[180px]">
                 <span className="text-[10px] font-medium truncate">{ctx.lastProduct.name}</span>
@@ -247,9 +254,7 @@ export function SmartTopBar({
                 ref={inputRef}
                 type="text"
                 value={search.query}
-                onChange={e => {
-                  search.setQuery(e.target.value);
-                }}
+                onChange={e => search.setQuery(e.target.value)}
                 onFocus={() => {
                   setMobileInputExpanded(true);
                   if (search.query.trim().length >= 2) search.openDropdown();
@@ -283,9 +288,9 @@ export function SmartTopBar({
             {/* Dropdown — Search Results */}
             {(showDropdown || showCommandDropdown) && (
               <div
-                className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 animate-scale-in"
+                className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-[60] animate-scale-in"
               >
-                <div className="max-h-64 overflow-y-auto">
+                <div className="max-h-64 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
                   {/* Command results */}
                   {showCommandDropdown && (
                     <div>
@@ -296,8 +301,9 @@ export function SmartTopBar({
                         <button
                           key={cmd.key}
                           role="option"
-                          onPointerDown={(e) => { e.preventDefault(); executeCommand(cmd.key); }}
                           className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+                          style={{ touchAction: 'manipulation' }}
+                          {...makeResultHandlers(() => executeCommand(cmd.key))}
                         >
                           <span className="text-sm">{cmd.icon}</span>
                           <span className="text-xs font-medium text-foreground">{cmd.label}</span>
@@ -317,8 +323,9 @@ export function SmartTopBar({
                         <button
                           key={r.id}
                           role="option"
-                          onPointerDown={(e) => { e.preventDefault(); handleProductResult(r.id); }}
                           className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+                          style={{ touchAction: 'manipulation' }}
+                          {...makeResultHandlers(() => handleProductResult(r.id))}
                         >
                           <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
                             <span className="text-[10px] font-bold text-primary">
@@ -346,8 +353,9 @@ export function SmartTopBar({
                         <button
                           key={r.id}
                           role="option"
-                          onPointerDown={(e) => { e.preventDefault(); handleShelfResult(r.id, r.name); }}
                           className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+                          style={{ touchAction: 'manipulation' }}
+                          {...makeResultHandlers(() => handleShelfResult(r.id, r.name))}
                         >
                           <div className="w-6 h-6 rounded bg-accent/10 flex items-center justify-center flex-shrink-0">
                             <span className="text-[10px] font-bold text-accent">{r.name.charAt(0)}</span>
@@ -369,10 +377,7 @@ export function SmartTopBar({
             "flex items-center gap-0.5 flex-shrink-0 transition-all",
             mobileInputExpanded && search.query ? 'hidden md:flex' : 'flex'
           )}>
-            {/* Global Scanner Button */}
             <GlobalScannerButton />
-
-            {/* Radial Action Menu */}
             <RadialActionMenu
               onStockIn={() => { if (lockedProduct) onStockAction(lockedProduct, 'giris'); else onAddProduct(); }}
               onStockOut={() => { if (lockedProduct) onStockAction(lockedProduct, 'cikis'); }}
@@ -381,16 +386,12 @@ export function SmartTopBar({
               onDamage={() => navigate('/')}
               onPrintLabel={() => navigate('/')}
             />
-
-            {/* Alerts Popover */}
             <AlertsPopover
               products={products}
               pendingSyncCount={pendingActions.length}
               onRestockProduct={(p) => onStockAction(p, 'giris')}
               onViewProduct={(id) => search.openProduct(id)}
             />
-
-            {/* Session count */}
             <div className="hidden lg:flex items-center gap-1 px-2 py-1 rounded-md bg-muted/50" title="Bugünkü işlemler">
               <Activity className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-[10px] font-semibold text-muted-foreground">{ctx.sessionCount}</span>
@@ -451,10 +452,10 @@ export function SmartTopBar({
         </div>
       )}
 
-      {/* Click overlay to close dropdown */}
+      {/* Click overlay to close dropdown — z-index below results (z-50 < z-60) */}
       {(showDropdown || showCommandDropdown) && (
         <div
-          className="fixed inset-0 z-40"
+          className="fixed inset-0 z-50"
           onClick={() => search.closeDropdown()}
         />
       )}

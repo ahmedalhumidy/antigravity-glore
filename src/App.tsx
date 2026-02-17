@@ -9,9 +9,10 @@ import { PermissionsProvider } from "@/hooks/usePermissions";
 import { FeatureFlagsProvider } from "@/hooks/useFeatureFlags";
 import { SystemSettingsProvider } from "@/hooks/useSystemSettings";
 import { WorkingContextProvider } from "@/hooks/useWorkingContext";
-import { SearchControllerProvider } from "@/contexts/SearchController";
+import { SearchControllerProvider, useSearchController } from "@/contexts/SearchController";
 import { PWAUpdateNotification } from "@/components/pwa/PWAUpdateNotification";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
+import { ProductIntelligenceDrawer } from "@/components/products/ProductIntelligenceDrawer";
 import { QuoteCartProvider } from "@/modules/magaza/context/QuoteCartContext";
 import { ThemeProvider } from "next-themes";
 
@@ -179,6 +180,18 @@ const AppRoutes = () => (
   </Suspense>
 );
 
+function GlobalProductDrawer() {
+  const searchCtrl = useSearchController();
+  if (!searchCtrl.drawerOpen) return null;
+  return (
+    <ProductIntelligenceDrawer
+      product={searchCtrl.selectedProduct}
+      open={searchCtrl.drawerOpen}
+      onClose={() => searchCtrl.closeDrawer()}
+    />
+  );
+}
+
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
     <QueryClientProvider client={queryClient}>
@@ -193,6 +206,7 @@ const App = () => (
                   <WorkingContextProvider>
                     <SearchControllerProvider>
                       <AppRoutes />
+                      <GlobalProductDrawer />
                       <PWAUpdateNotification />
                       <OfflineIndicator />
                     </SearchControllerProvider>
