@@ -193,15 +193,19 @@ export default function ImportBarcodeCatalog() {
         }
       }
 
-      // Phase 2: Batch upsert using ON CONFLICT (urun_kodu)
+      // Phase 2: Split into creates and updates
+      const newItems = validItems.filter(item => !existingCodes.has(item.urunKodu));
+      const updateItems = validItems.filter(item => existingCodes.has(item.urunKodu));
+
+      stats.created = newItems.length;
+      stats.updated = updateItems.length;
+
       const batchSize = 50;
-      const totalBatches = Math.ceil(validItems.length / batchSize);
 
-      for (let i = 0; i < validItems.length; i += batchSize) {
-        const batch = validItems.slice(i, i + batchSize);
-        const batchNum = Math.floor(i / batchSize) + 1;
-
-        const upsertBatch = batch.map(item => ({
+      // Insert new products (catalog only — zero stock)
+      for (let i = 0; i < newItems.length; i += batchSize) {
+        const batch = newItems.slice(i, i + batchSize);
+        const insertBatch = batch.map(item => ({
           urun_kodu: item.urunKodu,
           urun_adi: item.urunAdi,
           barkod: item.barkod,
@@ -215,31 +219,44 @@ export default function ImportBarcodeCatalog() {
           uyari: false,
         }));
 
-        // Count creates vs updates
+        const { error } = await supabase
+          .from('products')
+          .insert(insertBatch);
+
+        if (error) {
+          addLog(`Yeni ürün ekleme hatası: ${error.message}`, 'error');
+        }
+      }
+
+      // Update existing products (only name + barcode, preserve stock/ID)
+      for (let i = 0; i < updateItems.length; i += batchSize) {
+        const batch = updateItems.slice(i, i + batchSize);
         for (const item of batch) {
-          if (existingCodes.has(item.urunKodu)) {
-            stats.updated++;
-          } else {
-            stats.created++;
-            existingCodes.add(item.urunKodu);
+          const { error } = await supabase
+            .from('products')
+            .update({ urun_adi: item.urunAdi, barkod: item.barkod })
+            .eq('urun_kodu', item.urunKodu)
+            .eq('is_deleted', false);
+
+          if (error) {
+            addLog(`Güncelleme hatası (${item.urunKodu}): ${error.message}`, 'error');
           }
         }
 
-        const { error } = await supabase
-          .from('products')
-          .upsert(upsertBatch, { onConflict: 'urun_kodu', ignoreDuplicates: false })
-          .select('id');
-
-        if (error) {
-          addLog(`Batch ${batchNum}: Hata - ${error.message}`, 'error');
-        }
-
-        const pct = Math.round(((i + batch.length) / validItems.length) * 100);
+        const pct = Math.round(((newItems.length + i + batch.length) / validItems.length) * 100);
         setProgress(pct);
 
-        if (batchNum % 5 === 0 || batchNum === totalBatches) {
-          addLog(`Batch ${batchNum}/${totalBatches} tamamlandı (${pct}%)`, 'info');
+        if ((i / batchSize + 1) % 5 === 0) {
+          addLog(`Güncelleme ${i + batch.length}/${updateItems.length} (${pct}%)`, 'info');
         }
+      }
+
+      // Rebuild search_text for all affected products
+      addLog('Arama indeksi yenileniyor...', 'info');
+      const allCodes = validItems.map(item => item.urunKodu);
+      for (let i = 0; i < allCodes.length; i += 200) {
+        const codeBatch = allCodes.slice(i, i + 200);
+        await (supabase.rpc as any)('rebuild_search_text_batch', { codes: codeBatch });
       }
 
       addLog('İşlem tamamlandı!', 'success');
