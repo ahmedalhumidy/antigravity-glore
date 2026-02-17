@@ -23,6 +23,7 @@ import { RadialActionMenu } from './RadialActionMenu';
 import { AlertsPopover } from './AlertsPopover';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { toast } from '@/hooks/use-toast';
 
 interface SmartTopBarProps {
   products: Product[];
@@ -169,41 +170,55 @@ export function SmartTopBar({
     setQuery('');
     setShowDropdown(false);
     setMobileInputExpanded(false);
-    if (result.type === 'product') {
-      let product = products.find(p => p.id === result.id);
-      if (!product) {
-        const { data } = await supabase
-          .from('products')
-          .select('*')
-          .eq('id', result.id)
-          .maybeSingle();
-        if (data) {
-          product = {
-            id: data.id,
-            urunKodu: data.urun_kodu,
-            urunAdi: data.urun_adi,
-            rafKonum: data.raf_konum,
-            barkod: data.barkod || undefined,
-            acilisStok: data.acilis_stok,
-            toplamGiris: data.toplam_giris,
-            toplamCikis: data.toplam_cikis,
-            mevcutStok: data.mevcut_stok,
-            setStok: data.set_stok || 0,
-            minStok: data.min_stok,
-            uyari: data.uyari,
-            sonIslemTarihi: data.son_islem_tarihi || undefined,
-            not: data.notes || undefined,
-            category: data.category || undefined,
-          };
+    try {
+      if (result.type === 'product') {
+        let product = products.find(p => p.id === result.id);
+        if (!product) {
+          console.log('[Search] Product not in local cache, fetching from DB:', result.id);
+          const { data, error } = await supabase
+            .from('products')
+            .select('*')
+            .eq('id', result.id)
+            .maybeSingle();
+          if (error) {
+            console.error('[Search] DB fetch error:', error);
+            toast({ title: 'Ürün bilgisi alınamadı', description: error.message, variant: 'destructive' });
+            return;
+          }
+          if (data) {
+            product = {
+              id: data.id,
+              urunKodu: data.urun_kodu,
+              urunAdi: data.urun_adi,
+              rafKonum: data.raf_konum,
+              barkod: data.barkod || undefined,
+              acilisStok: data.acilis_stok,
+              toplamGiris: data.toplam_giris,
+              toplamCikis: data.toplam_cikis,
+              mevcutStok: data.mevcut_stok,
+              setStok: data.set_stok || 0,
+              minStok: data.min_stok,
+              uyari: data.uyari,
+              sonIslemTarihi: data.son_islem_tarihi || undefined,
+              not: data.notes || undefined,
+              category: data.category || undefined,
+            };
+          }
         }
+        if (product) {
+          ctx.setProduct({ id: product.id, name: product.urunAdi });
+          onProductFound(product);
+        } else {
+          console.warn('[Search] Product not found:', result.id);
+          toast({ title: 'Ürün bulunamadı', variant: 'destructive' });
+        }
+      } else if (result.type === 'shelf') {
+        ctx.setShelf({ id: result.id, name: result.name });
+        navigate('/');
       }
-      if (product) {
-        ctx.setProduct({ id: product.id, name: product.urunAdi });
-        onProductFound(product);
-      }
-    } else if (result.type === 'shelf') {
-      ctx.setShelf({ id: result.id, name: result.name });
-      navigate('/');
+    } catch (err) {
+      console.error('[Search] handleResultClick error:', err);
+      toast({ title: 'Bir hata oluştu', variant: 'destructive' });
     }
   }, [products, onProductFound, ctx, navigate]);
 
@@ -368,6 +383,8 @@ export function SmartTopBar({
                         <button
                           key={r.id}
                           onClick={() => handleResultClick(r)}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.preventDefault()}
                           className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors"
                         >
                           <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -396,6 +413,8 @@ export function SmartTopBar({
                         <button
                           key={r.id}
                           onClick={() => handleResultClick(r)}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.preventDefault()}
                           className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors"
                         >
                           <div className="w-6 h-6 rounded bg-accent/10 flex items-center justify-center flex-shrink-0">
