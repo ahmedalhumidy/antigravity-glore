@@ -195,9 +195,19 @@ export function SmartTopBar({
   const showDropdown = search.isOpen && !isCommandMode && search.results.length > 0;
   const showCommandDropdown = isCommandMode && commandResults.length > 0;
 
-  // Shared event handler factory for reliable touch/click on results
+  // Hardened event handler factory — fires on ALL interaction types
   const makeResultHandlers = (action: () => void) => ({
+    onPointerDownCapture: (e: React.PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      action();
+    },
     onPointerDown: (e: React.PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      action();
+    },
+    onClick: (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
       action();
