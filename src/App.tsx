@@ -13,6 +13,8 @@ import { SearchControllerProvider, useSearchController, SearchDebugOverlay } fro
 import { PWAUpdateNotification } from "@/components/pwa/PWAUpdateNotification";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { ProductIntelligenceDrawer } from "@/components/products/ProductIntelligenceDrawer";
+import { useProducts } from "@/hooks/useProducts";
+import { Product } from "@/types/stock";
 import { QuoteCartProvider } from "@/modules/magaza/context/QuoteCartContext";
 import { ThemeProvider } from "next-themes";
 
@@ -182,12 +184,25 @@ const AppRoutes = () => (
 
 function GlobalProductDrawer() {
   const searchCtrl = useSearchController();
+  const { updateProduct, deleteProduct } = useProducts();
   if (!searchCtrl.drawerOpen) return null;
+
+  const handleSave = async (p: Product) => {
+    await updateProduct(p);
+    return true;
+  };
+  const handleDelete = async (id: string) => {
+    await deleteProduct(id);
+    return true;
+  };
+
   return (
     <ProductIntelligenceDrawer
       product={searchCtrl.selectedProduct}
       open={searchCtrl.drawerOpen}
       onClose={() => searchCtrl.closeDrawer()}
+      onSave={handleSave}
+      onDelete={handleDelete}
     />
   );
 }
