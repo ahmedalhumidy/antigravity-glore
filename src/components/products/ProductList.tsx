@@ -47,6 +47,7 @@ export function ProductList({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [exportShelfIds, setExportShelfIds] = useState<Set<string>>(new Set());
   const [shelfPopoverOpen, setShelfPopoverOpen] = useState(false);
+  const [shelfSearch, setShelfSearch] = useState('');
   const { shelves } = useShelves();
 
   const PAGE_SIZE = 50;
@@ -242,7 +243,7 @@ export function ProductList({
           {selectedCategory && <span className="ml-1">({selectedCategory})</span>}
         </p>
         <div className="flex items-center gap-2">
-          <Popover open={shelfPopoverOpen} onOpenChange={setShelfPopoverOpen}>
+          <Popover modal={true} open={shelfPopoverOpen} onOpenChange={(open) => { setShelfPopoverOpen(open); if (!open) setShelfSearch(''); }}>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1.5">
                 <Filter className="w-4 h-4" />
@@ -265,16 +266,29 @@ export function ProductList({
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">Raf seçilmezse tüm ürünler dışa aktarılır.</p>
+                <Input
+                  type="text"
+                  placeholder="Raf ara..."
+                  value={shelfSearch}
+                  onChange={(e) => setShelfSearch(e.target.value)}
+                  className="h-8 text-sm"
+                />
                 <div className="max-h-48 overflow-y-auto space-y-1">
-                  {shelves.map(shelf => (
-                    <label key={shelf.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent/50 cursor-pointer text-sm">
-                      <Checkbox
-                        checked={exportShelfIds.has(shelf.id)}
-                        onCheckedChange={() => toggleExportShelf(shelf.id)}
-                      />
-                      {shelf.name}
-                    </label>
-                  ))}
+                  {shelves.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-2 text-center">Yükleniyor...</p>
+                  ) : (
+                    shelves
+                      .filter(s => !shelfSearch || s.name.toLowerCase().includes(shelfSearch.toLowerCase()))
+                      .map(shelf => (
+                        <label key={shelf.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent/50 cursor-pointer text-sm">
+                          <Checkbox
+                            checked={exportShelfIds.has(shelf.id)}
+                            onCheckedChange={() => toggleExportShelf(shelf.id)}
+                          />
+                          {shelf.name}
+                        </label>
+                      ))
+                  )}
                 </div>
               </div>
             </PopoverContent>
