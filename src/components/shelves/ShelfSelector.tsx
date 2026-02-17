@@ -99,14 +99,17 @@ export function ShelfSelector({
           </Button>
         </PopoverTrigger>
         <PopoverContent 
-          className="w-[var(--radix-popover-trigger-width)] p-0 z-50" 
+          className="w-[var(--radix-popover-trigger-width)] p-0" 
           align="start"
           sideOffset={4}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <Command shouldFilter={true}>
             <CommandInput placeholder="Raf ara..." />
-            <CommandList className="max-h-[200px] overflow-y-auto overscroll-contain">
+            <CommandList 
+              className="max-h-[200px] overflow-y-auto overscroll-contain"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
               <CommandEmpty>
                 <div className="py-2 text-center">
                   <p className="text-sm text-muted-foreground mb-2">Raf bulunamadı</p>
