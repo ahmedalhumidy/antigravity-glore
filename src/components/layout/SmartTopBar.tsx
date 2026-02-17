@@ -276,9 +276,6 @@ export function SmartTopBar({
       className="sticky top-0 z-30 safe-area-top"
       onTouchStart={handleLongPressStart}
       onTouchEnd={handleLongPressEnd}
-      onMouseDown={handleLongPressStart}
-      onMouseUp={handleLongPressEnd}
-      onMouseLeave={handleLongPressEnd}
     >
       {/* Main Bar */}
       <div className="bg-card/85 backdrop-blur-xl border-b border-border">
@@ -351,8 +348,13 @@ export function SmartTopBar({
 
             {/* Dropdown */}
             {showDropdown && (results.length > 0 || commandResults.length > 0) && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 animate-scale-in">
-                <ScrollArea className="max-h-64">
+              <div
+                className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 animate-scale-in"
+                onMouseDown={(e) => e.stopPropagation()}
+                onMouseUp={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+              >
+                <div className="max-h-64 overflow-y-auto">
                   {/* Command results */}
                   {commandResults.length > 0 && (
                     <div>
@@ -383,8 +385,6 @@ export function SmartTopBar({
                         <button
                           key={r.id}
                           onClick={() => handleResultClick(r)}
-                          onTouchStart={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => e.preventDefault()}
                           className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors"
                         >
                           <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -413,8 +413,6 @@ export function SmartTopBar({
                         <button
                           key={r.id}
                           onClick={() => handleResultClick(r)}
-                          onTouchStart={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => e.preventDefault()}
                           className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors"
                         >
                           <div className="w-6 h-6 rounded bg-accent/10 flex items-center justify-center flex-shrink-0">
@@ -427,7 +425,7 @@ export function SmartTopBar({
                       ))}
                     </div>
                   )}
-                </ScrollArea>
+                </div>
               </div>
             )}
           </div>
