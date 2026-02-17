@@ -9,6 +9,7 @@ import { PermissionsProvider } from "@/hooks/usePermissions";
 import { FeatureFlagsProvider } from "@/hooks/useFeatureFlags";
 import { SystemSettingsProvider } from "@/hooks/useSystemSettings";
 import { WorkingContextProvider } from "@/hooks/useWorkingContext";
+import { SearchControllerProvider } from "@/contexts/SearchController";
 import { PWAUpdateNotification } from "@/components/pwa/PWAUpdateNotification";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { QuoteCartProvider } from "@/modules/magaza/context/QuoteCartContext";
@@ -190,9 +191,11 @@ const App = () => (
               <FeatureFlagsProvider>
                 <SystemSettingsProvider>
                   <WorkingContextProvider>
-                    <AppRoutes />
-                    <PWAUpdateNotification />
-                    <OfflineIndicator />
+                    <SearchControllerProvider>
+                      <AppRoutes />
+                      <PWAUpdateNotification />
+                      <OfflineIndicator />
+                    </SearchControllerProvider>
                   </WorkingContextProvider>
                 </SystemSettingsProvider>
               </FeatureFlagsProvider>
