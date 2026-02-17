@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { Package, MapPin, AlertTriangle, ArrowUpDown, Download, Plus, Minus, Search, Loader2 } from 'lucide-react';
+import { Package, MapPin, AlertTriangle, ArrowUpDown, Download, Plus, Minus, Search, Loader2, Filter } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Product } from '@/types/stock';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,9 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Input } from '@/components/ui/input';
 import { useProductSearch } from '@/hooks/useProductSearch';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useShelves } from '@/hooks/useShelves';
+import { Badge } from '@/components/ui/badge';
 
 interface ProductListProps {
   products: Product[];
@@ -42,6 +45,9 @@ export function ProductList({
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [exportShelfIds, setExportShelfIds] = useState<Set<string>>(new Set());
+  const [shelfPopoverOpen, setShelfPopoverOpen] = useState(false);
+  const { shelves } = useShelves();
 
   const PAGE_SIZE = 50;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -133,8 +139,26 @@ export function ProductList({
     </button>
   );
 
-  const handleExportProducts = () => {
-    const exportData = filteredProducts.map(p => ({
+  const handleExportProducts = async () => {
+    let productsToExport = filteredProducts;
+    
+    // Filter by selected shelves if any
+    if (exportShelfIds.size > 0) {
+      const selectedShelfNames = shelves
+        .filter(s => exportShelfIds.has(s.id))
+        .map(s => s.name);
+      productsToExport = productsToExport.filter(p => 
+        selectedShelfNames.includes(p.rafKonum)
+      );
+    }
+
+    if (productsToExport.length === 0) {
+      const { toast } = await import('sonner');
+      toast.error('Seçilen raflarda ürün bulunamadı');
+      return;
+    }
+
+    const exportData = productsToExport.map(p => ({
       'Ürün Kodu': p.urunKodu,
       'Ürün Adı': p.urunAdi,
       'Barkod': p.barkod || '',
@@ -159,6 +183,15 @@ export function ProductList({
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Ürünler');
     XLSX.writeFile(wb, `urunler-${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const toggleExportShelf = (shelfId: string) => {
+    setExportShelfIds(prev => {
+      const next = new Set(prev);
+      if (next.has(shelfId)) next.delete(shelfId);
+      else next.add(shelfId);
+      return next;
+    });
   };
 
   const handleBulkDelete = (ids: string[]) => {
@@ -209,6 +242,43 @@ export function ProductList({
           {selectedCategory && <span className="ml-1">({selectedCategory})</span>}
         </p>
         <div className="flex items-center gap-2">
+          <Popover open={shelfPopoverOpen} onOpenChange={setShelfPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Filter className="w-4 h-4" />
+                Raf
+                {exportShelfIds.size > 0 && (
+                  <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
+                    {exportShelfIds.size}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3" align="end">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">Dışa Aktarılacak Raflar</p>
+                  {exportShelfIds.size > 0 && (
+                    <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setExportShelfIds(new Set())}>
+                      Temizle
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">Raf seçilmezse tüm ürünler dışa aktarılır.</p>
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {shelves.map(shelf => (
+                    <label key={shelf.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent/50 cursor-pointer text-sm">
+                      <Checkbox
+                        checked={exportShelfIds.has(shelf.id)}
+                        onCheckedChange={() => toggleExportShelf(shelf.id)}
+                      />
+                      {shelf.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button variant="outline" size="sm" onClick={handleExportProducts}>
             <Download className="w-4 h-4 mr-1.5" />
             Excel
