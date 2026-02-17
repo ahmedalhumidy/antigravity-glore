@@ -22,6 +22,7 @@ import { useMovements } from "@/hooks/useMovements";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentView } from "@/hooks/useCurrentView";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -175,10 +176,49 @@ const Index = () => {
     refreshProducts();
   };
 
-  const handleViewProduct = (id: string) => {
-    const product = products.find((p) => p.id === id);
+  const handleViewProduct = async (id: string) => {
+    let product = products.find((p) => p.id === id);
+    if (!product) {
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+        if (error) {
+          console.error('[ViewProduct] DB fetch error:', error);
+          toast.error('Ürün bilgisi alınamadı');
+          return;
+        }
+        if (data) {
+          product = {
+            id: data.id,
+            urunKodu: data.urun_kodu,
+            urunAdi: data.urun_adi,
+            rafKonum: data.raf_konum,
+            barkod: data.barkod || undefined,
+            acilisStok: data.acilis_stok,
+            toplamGiris: data.toplam_giris,
+            toplamCikis: data.toplam_cikis,
+            mevcutStok: data.mevcut_stok,
+            setStok: data.set_stok || 0,
+            minStok: data.min_stok,
+            uyari: data.uyari,
+            sonIslemTarihi: data.son_islem_tarihi || undefined,
+            not: data.notes || undefined,
+            category: data.category || undefined,
+          };
+        }
+      } catch (err) {
+        console.error('[ViewProduct] Error:', err);
+        toast.error('Ürün bilgisi alınamadı');
+        return;
+      }
+    }
     if (product) {
       setDetailDrawerProduct(product);
+    } else {
+      toast.error('Ürün bulunamadı');
     }
   };
 
