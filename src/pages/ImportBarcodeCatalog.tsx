@@ -3,8 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Upload, CheckCircle, AlertCircle, Loader2, FileUp } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import * as XLSX from 'xlsx';
 
 interface ImportLog {
@@ -25,10 +27,29 @@ export default function ImportBarcodeCatalog() {
   const [progress, setProgress] = useState(0);
   const [logs, setLogs] = useState<ImportLog[]>([]);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
+  const [customFile, setCustomFile] = useState<File | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   const addLog = (message: string, type: ImportLog['type'] = 'info') => {
     setLogs(prev => [...prev, { message, type }]);
+  };
+
+  const readWorkbook = async (): Promise<XLSX.WorkBook | null> => {
+    try {
+      if (customFile) {
+        addLog(`Dosya okunuyor: ${customFile.name}`);
+        const arrayBuffer = await customFile.arrayBuffer();
+        return XLSX.read(arrayBuffer, { type: 'array' });
+      } else {
+        addLog('Varsayılan katalog dosyası okunuyor...');
+        const response = await fetch('/imports/barcode-catalog.xlsx');
+        const arrayBuffer = await response.arrayBuffer();
+        return XLSX.read(arrayBuffer, { type: 'array' });
+      }
+    } catch (err: any) {
+      addLog(`Dosya okuma hatası: ${err.message}`, 'error');
+      return null;
+    }
   };
 
   const startImport = async () => {
@@ -40,14 +61,15 @@ export default function ImportBarcodeCatalog() {
     const stats: ImportSummary = { created: 0, updated: 0, skipped: 0, errors: 0, total: 0 };
 
     try {
-      addLog('Excel dosyası okunuyor...');
-      const response = await fetch('/imports/barcode-catalog.xlsx');
-      const arrayBuffer = await response.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const workbook = await readWorkbook();
+      if (!workbook) {
+        setImporting(false);
+        return;
+      }
+
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-      // Skip header row
       const dataRows = rows.slice(1);
       addLog(`Toplam ${dataRows.length} satır bulundu.`);
 
@@ -61,7 +83,7 @@ export default function ImportBarcodeCatalog() {
       stats.total = validRows.length;
       addLog(`${validRows.length} aktif ve barkodlu ürün filtrelendi.`);
 
-      // Fetch existing product codes for matching
+      // Fetch existing product codes
       addLog('Mevcut ürünler kontrol ediliyor...');
       const { data: existingProducts } = await supabase
         .from('products')
@@ -75,7 +97,6 @@ export default function ImportBarcodeCatalog() {
 
       addLog(`Veritabanında ${existingMap.size} mevcut ürün bulundu.`);
 
-      // Process in batches
       const batchSize = 50;
       const totalBatches = Math.ceil(validRows.length / batchSize);
 
@@ -84,15 +105,19 @@ export default function ImportBarcodeCatalog() {
         const batchNum = Math.floor(i / batchSize) + 1;
 
         const toInsert: any[] = [];
-        const toUpdate: { id: string; barkod: string }[] = [];
+        const toUpdate: { id: string; barkod: string; sale_price?: number | null; price?: number | null }[] = [];
 
         for (const row of batch) {
           const urunKodu = String(row[1] || '').trim();
           const urunAdi = String(row[2] || '').trim();
           const barkod = String(row[3] || '').trim();
-          const anaBirim = String(row[8] || '').trim();
-          // Price not needed - skip to avoid numeric overflow
           const ozelKod = String(row[13] || '').trim();
+          
+          // Parse prices safely
+          const satisFiyatiHaric = parseFloat(String(row[11] || '0').replace(',', '.'));
+          const satisFiyatiDahil = parseFloat(String(row[12] || '0').replace(',', '.'));
+          const price = isNaN(satisFiyatiHaric) || satisFiyatiHaric === 0 ? null : satisFiyatiHaric;
+          const salePrice = isNaN(satisFiyatiDahil) || satisFiyatiDahil === 0 ? null : satisFiyatiDahil;
 
           if (!urunKodu || !urunAdi) {
             stats.skipped++;
@@ -102,9 +127,8 @@ export default function ImportBarcodeCatalog() {
           const existing = existingMap.get(urunKodu);
 
           if (existing) {
-            // Update barcode if different
             if (existing.barkod !== barkod) {
-              toUpdate.push({ id: existing.id, barkod });
+              toUpdate.push({ id: existing.id, barkod, sale_price: salePrice, price });
               stats.updated++;
             } else {
               stats.skipped++;
@@ -123,13 +147,13 @@ export default function ImportBarcodeCatalog() {
               set_stok: 0,
               uyari: false,
               category: ozelKod || null,
-              sale_price: null,
+              sale_price: salePrice,
+              price: price,
             });
             stats.created++;
           }
         }
 
-        // Execute batch inserts
         if (toInsert.length > 0) {
           const { error } = await supabase.from('products').insert(toInsert);
           if (error) {
@@ -139,11 +163,10 @@ export default function ImportBarcodeCatalog() {
           }
         }
 
-        // Execute batch updates
         for (const upd of toUpdate) {
           const { error } = await supabase
             .from('products')
-            .update({ barkod: upd.barkod })
+            .update({ barkod: upd.barkod, sale_price: upd.sale_price, price: upd.price })
             .eq('id', upd.id);
           if (error) {
             stats.errors++;
@@ -182,6 +205,35 @@ export default function ImportBarcodeCatalog() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* File Picker */}
+          <div className="space-y-2">
+            <Label htmlFor="file-input">Excel Dosyası Seçin (opsiyonel)</Label>
+            <div className="flex items-center gap-3">
+              <Input
+                id="file-input"
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => setCustomFile(e.target.files?.[0] || null)}
+                className="flex-1"
+              />
+              {customFile && (
+                <Button variant="ghost" size="sm" onClick={() => setCustomFile(null)}>
+                  Temizle
+                </Button>
+              )}
+            </div>
+            {customFile ? (
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <FileUp className="w-3 h-3" />
+                Seçilen: {customFile.name}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Dosya seçilmezse varsayılan katalog (barcode-catalog.xlsx) kullanılır.
+              </p>
+            )}
+          </div>
+
           <Button
             onClick={startImport}
             disabled={importing}

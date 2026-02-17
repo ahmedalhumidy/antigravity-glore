@@ -57,6 +57,12 @@ export function QuickStockInput({
     if (mode === newMode) {
       resetForm();
     } else {
+      // Block stock-out if no stock available
+      if (newMode === 'cikis' && product.mevcutStok === 0 && product.setStok === 0) {
+        const { toast } = require('sonner');
+        toast.warning('Bu ürün için stok bulunmuyor');
+        return;
+      }
       setMode(newMode);
       setAdetInput(0);
       setSetInput(0);

@@ -7,17 +7,16 @@ import {
   PackageMinus,
   ArrowLeftRight,
   Eye,
-  Pencil,
-  Activity,
   MapPin,
   Barcode,
+  AlertTriangle,
 } from 'lucide-react';
 import { useGlobalScanner } from './GlobalScannerProvider';
 import { useCurrentView } from '@/hooks/useCurrentView';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/stock';
-import { stockService } from '@/services/stockService';
 import { toast } from 'sonner';
+import { getProductStatus, getStatusLabel, getStatusColor, getStatusDescription } from '@/lib/productStatus';
 
 interface RecentMovement {
   id: string;
@@ -63,8 +62,20 @@ export function CopilotActionSheet({
 
   if (!copilotProduct) return null;
 
-  // Smart CTA based on current route
+  const status = getProductStatus(copilotProduct);
+  const hasStock = status === 'in_stock';
+
+  // Smart CTA based on status + current route
   const getPrimaryCTA = () => {
+    // If catalog_only or out_of_stock, always suggest stock entry
+    if (status === 'catalog_only') {
+      return { label: 'İlk Stok Girişi', icon: PackagePlus, action: () => { closeCopilot(); onStockAction(copilotProduct, 'giris'); }, color: 'bg-emerald-600 hover:bg-emerald-700 text-white' };
+    }
+    if (status === 'out_of_stock') {
+      return { label: 'Stok Girişi', icon: PackagePlus, action: () => { closeCopilot(); onStockAction(copilotProduct, 'giris'); }, color: 'bg-emerald-600 hover:bg-emerald-700 text-white' };
+    }
+
+    // in_stock: context-aware CTA
     if (currentView === 'movements' || currentView.startsWith('uretim-')) {
       return { label: 'Stok Girişi', icon: PackagePlus, action: () => { closeCopilot(); onStockAction(copilotProduct, 'giris'); }, color: 'bg-emerald-600 hover:bg-emerald-700 text-white' };
     }
@@ -80,6 +91,15 @@ export function CopilotActionSheet({
   const primaryCTA = getPrimaryCTA();
   const PrimaryIcon = primaryCTA.icon;
 
+  const handleCikisClick = () => {
+    if (!hasStock) {
+      toast.warning('Bu ürün için stok bulunmuyor');
+      return;
+    }
+    closeCopilot();
+    onStockAction(copilotProduct, 'cikis');
+  };
+
   return (
     <Drawer open={copilotOpen} onOpenChange={(open) => { if (!open) closeCopilot(); }}>
       <DrawerContent className="max-h-[85vh]">
@@ -90,7 +110,15 @@ export function CopilotActionSheet({
         <div className="px-4 pb-6 space-y-4 overflow-y-auto">
           {/* Product Identity */}
           <div className="space-y-1">
-            <h3 className="font-semibold text-lg">{copilotProduct.urunAdi}</h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-semibold text-lg">{copilotProduct.urunAdi}</h3>
+              <Badge
+                variant="outline"
+                className={`text-[10px] ${getStatusColor(status)}`}
+              >
+                {getStatusLabel(status)}
+              </Badge>
+            </div>
             <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="secondary">{copilotProduct.urunKodu}</Badge>
               {copilotProduct.barkod && (
@@ -101,6 +129,25 @@ export function CopilotActionSheet({
               )}
             </div>
           </div>
+
+          {/* Status Banner for catalog_only */}
+          {status === 'catalog_only' && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <p className="text-sm text-amber-700 dark:text-amber-400">
+                {getStatusDescription(status)} — İlk stok girişi yaparak depoya ekleyin.
+              </p>
+            </div>
+          )}
+
+          {status === 'out_of_stock' && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+              <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+              <p className="text-sm text-destructive">
+                {getStatusDescription(status)} — Yeni stok girişi yapın.
+              </p>
+            </div>
+          )}
 
           {/* Stock Summary */}
           <div className="grid grid-cols-3 gap-3">
@@ -154,9 +201,15 @@ export function CopilotActionSheet({
               <PackagePlus className="w-4 h-4 text-emerald-500" />
               <span className="text-[10px]">Giriş</span>
             </Button>
-            <Button variant="outline" size="sm" className="flex-col h-auto py-3 gap-1" onClick={() => { closeCopilot(); onStockAction(copilotProduct, 'cikis'); }}>
-              <PackageMinus className="w-4 h-4 text-red-500" />
-              <span className="text-[10px]">Çıkış</span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-col h-auto py-3 gap-1"
+              disabled={!hasStock}
+              onClick={handleCikisClick}
+            >
+              <PackageMinus className={`w-4 h-4 ${hasStock ? 'text-red-500' : 'text-muted-foreground'}`} />
+              <span className="text-[10px]">{hasStock ? 'Çıkış' : 'Stok Yok'}</span>
             </Button>
           </div>
         </div>

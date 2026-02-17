@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Package, Plus, X, MapPin } from 'lucide-react';
+import { Package, Plus, X, MapPin, AlertTriangle } from 'lucide-react';
 import { Product } from '@/types/stock';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,7 @@ import {
 import { QuickStockInput } from '@/components/stock/QuickStockInput';
 import { ShelfSelector } from '@/components/shelves/ShelfSelector';
 import { useShelves, Shelf } from '@/hooks/useShelves';
+import { getProductStatus, getStatusLabel, getStatusColor, getStatusDescription } from '@/lib/productStatus';
 
 interface BarcodeResultModalProps {
   isOpen: boolean;
@@ -58,12 +60,22 @@ export function BarcodeResultModal({
             </DialogTitle>
           </DialogHeader>
 
-          <div className="text-sm text-muted-foreground mb-2">
+          <div className="text-sm text-muted-foreground mb-2 flex items-center gap-2 flex-wrap">
             <span className="font-mono bg-muted px-2 py-0.5 rounded">{product.urunKodu}</span>
             {product.barkod && (
-              <span className="ml-2 font-mono text-xs">{product.barkod}</span>
+              <span className="font-mono text-xs">{product.barkod}</span>
             )}
+            <Badge variant="outline" className={`text-[10px] ${getStatusColor(getProductStatus(product))}`}>
+              {getStatusLabel(getProductStatus(product))}
+            </Badge>
           </div>
+
+          {getProductStatus(product) === 'catalog_only' && (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <p className="text-xs text-amber-700 dark:text-amber-400">{getStatusDescription('catalog_only')}</p>
+            </div>
+          )}
 
           <QuickStockInput
             product={product}

@@ -16,6 +16,7 @@ import { useProductSearch } from '@/hooks/useProductSearch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useShelves } from '@/hooks/useShelves';
 import { Badge } from '@/components/ui/badge';
+import { getProductStatus, getStatusLabel, getStatusColor } from '@/lib/productStatus';
 
 interface ProductListProps {
   products: Product[];
@@ -400,16 +401,36 @@ export function ProductList({
                       </span>
                     </td>
                     <td className="py-4 px-4 text-center">
-                      {isLowStock ? (
-                        <span className="badge-status bg-destructive/10 text-destructive">
-                          <AlertTriangle className="w-3 h-3 mr-1" />
-                          Düşük
-                        </span>
-                      ) : (
-                        <span className="badge-status bg-success/10 text-success">
-                          Normal
-                        </span>
-                      )}
+                      {(() => {
+                        const pStatus = getProductStatus(product);
+                        if (pStatus === 'catalog_only') {
+                          return (
+                            <span className={cn('badge-status border', getStatusColor('catalog_only'))}>
+                              Katalog
+                            </span>
+                          );
+                        }
+                        if (pStatus === 'out_of_stock') {
+                          return (
+                            <span className={cn('badge-status border', getStatusColor('out_of_stock'))}>
+                              Stok Yok
+                            </span>
+                          );
+                        }
+                        if (isLowStock) {
+                          return (
+                            <span className="badge-status bg-destructive/10 text-destructive">
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              Düşük
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="badge-status bg-success/10 text-success">
+                            Normal
+                          </span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 );
@@ -594,16 +615,36 @@ function SwipeableProductCard({
               </div>
             </div>
           </div>
-          {isLowStock ? (
-            <span className="badge-status bg-destructive/10 text-destructive">
-              <AlertTriangle className="w-3 h-3 mr-1" />
-              Düşük
-            </span>
-          ) : (
-            <span className="badge-status bg-success/10 text-success text-xs">
-              Normal
-            </span>
-          )}
+          {(() => {
+            const pStatus = getProductStatus(product);
+            if (pStatus === 'catalog_only') {
+              return (
+                <span className={cn('badge-status border text-xs', getStatusColor('catalog_only'))}>
+                  Katalog
+                </span>
+              );
+            }
+            if (pStatus === 'out_of_stock') {
+              return (
+                <span className={cn('badge-status border text-xs', getStatusColor('out_of_stock'))}>
+                  Stok Yok
+                </span>
+              );
+            }
+            if (isLowStock) {
+              return (
+                <span className="badge-status bg-destructive/10 text-destructive">
+                  <AlertTriangle className="w-3 h-3 mr-1" />
+                  Düşük
+                </span>
+              );
+            }
+            return (
+              <span className="badge-status bg-success/10 text-success text-xs">
+                Normal
+              </span>
+            );
+          })()}
         </div>
 
         <div className="flex items-center justify-between text-sm">
