@@ -1,50 +1,47 @@
 
 
-## Plan: Fix Scroll Issues in Stock Entry (Movements Page + Main Page)
+## Plan: Fix Shelf Scroll, Radial Menu Buttons (Cikis, Etiket, Sayim)
 
-### Root Cause Analysis
+### Problem Analysis
 
-Two separate scroll problems were identified:
+4 issues identified from the screenshot and user report:
 
-1. **Movements Page (MovementForm)**: The product selection dropdown (Popover with CommandList) and shelf selector dropdown open inside Radix Popovers. On mobile, these Popovers can block touch-based scrolling inside their content. The product combobox CommandList has a default `max-h-[300px]` but may not respond to touch scroll properly on some devices.
+1. **Shelf selector scroll not working in stock entry modal** - The ShelfSelector Popover renders via portal with `z-50`, but the Dialog also uses `z-50`. On mobile, the popover can appear behind or be unresponsive. Fix: bump the ShelfSelector's PopoverContent z-index above the modal.
 
-2. **Main Page (StockActionModal)**: The Dialog uses `fixed` positioning centered on screen with NO `max-height` or `overflow-y: auto`. When the QuickStockInput form expands (showing quantity inputs, shelf selector, notes, action buttons), the content exceeds the mobile viewport height and cannot scroll.
+2. **Cikis (stock out) button does nothing** - In RadialActionMenu, the `onStockOut` handler only works when a product is "locked" in context (`lockedProduct`). Without a locked product, clicking does nothing. Fix: navigate to movements page as fallback.
+
+3. **Etiket (label/print) button does nothing** - Handler is `navigate('/')` which just goes to home (already there). Fix: show a toast message indicating no product is selected, or navigate to the products page for label printing.
+
+4. **Sayim (count) button does nothing** - Same problem as Etiket. Fix: navigate to a relevant page or show guidance.
 
 ---
 
 ### Changes
 
-**1. `src/components/ui/dialog.tsx`** -- Add scrollability to DialogContent
-- Add `max-h-[85vh]` and `overflow-y-auto` to DialogContent so tall content scrolls on mobile
-- Add `overscroll-behavior: contain` to prevent background scroll bleed
-- This fixes StockActionModal, BarcodeResultModal, and all other dialogs globally
+**1. `src/components/ui/popover.tsx`**
+- Change PopoverContent z-index from `z-50` to `z-[500]` to ensure it always renders above dialogs and modals on mobile
 
-**2. `src/components/movements/MovementForm.tsx`** -- Fix product list scroll in Popover
-- Add `onOpenAutoFocus={(e) => e.preventDefault()}` to the PopoverContent (already done on ShelfSelector, missing here)
-- Add explicit touch-scroll CSS to the CommandList: `overscroll-contain` and `-webkit-overflow-scrolling: touch`
-
-**3. `src/components/ui/command.tsx`** -- Improve touch scroll on CommandList
-- Add `overscroll-behavior: contain` and `-webkit-overflow-scrolling: touch` as inline styles on CommandList to ensure mobile touch scrolling works in all comboboxes/selectors
-
----
+**2. `src/components/layout/SmartTopBar.tsx`**
+- Update RadialActionMenu handlers:
+  - `onStockOut`: If no locked product, navigate to movements page (so user can pick a product for stock out)
+  - `onCount`: Navigate to movements page or show a toast "Sayim icin urun tarayin"
+  - `onDamage`: Show toast guidance
+  - `onPrintLabel`: Navigate to products page or show toast "Etiket icin urun secin"
 
 ### Technical Details
 
-DialogContent change (the key fix):
-```text
-Current:  fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] ...
-Updated:  fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] max-h-[85vh] overflow-y-auto overscroll-contain ...
+PopoverContent z-index change:
+```
+Current:  z-50
+Updated:  z-[500]
 ```
 
-CommandList touch scroll:
-```text
-Current:  max-h-[300px] overflow-y-auto overflow-x-hidden
-Updated:  max-h-[300px] overflow-y-auto overflow-x-hidden overscroll-contain
-+ inline style: { WebkitOverflowScrolling: 'touch' }
+RadialActionMenu handler updates in SmartTopBar:
+```
+onStockOut: lockedProduct ? onStockAction(lockedProduct, 'cikis') : setCurrentView('movements') + toast
+onCount: toast.info('Sayim icin bir urun tarayin')
+onPrintLabel: toast.info('Etiket icin bir urun secin')  
+onDamage: toast.info('Hasar bildirimi icin bir urun tarayin')
 ```
 
-MovementForm PopoverContent:
-```text
-Add: onOpenAutoFocus={(e) => e.preventDefault()}
-```
-
+Since SmartTopBar doesn't have access to `setCurrentView`, the fallback actions will use `navigate` or show toast messages guiding the user.
