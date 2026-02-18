@@ -24,6 +24,10 @@ interface ProductListProps {
   onDeleteProduct: (id: string) => void;
   onViewProduct: (id: string) => void;
   onStockAction: (product: Product, type: 'giris' | 'cikis') => void;
+  totalCount?: number;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }
 
 type SortField = 'urunAdi' | 'urunKodu' | 'mevcutStok' | 'rafKonum';
@@ -34,7 +38,11 @@ export function ProductList({
   onEditProduct, 
   onDeleteProduct,
   onViewProduct,
-  onStockAction 
+  onStockAction,
+  totalCount,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
 }: ProductListProps) {
   const { hasPermission } = usePermissions();
   const canDeleteProducts = hasPermission('products.delete');
@@ -51,8 +59,6 @@ export function ProductList({
   const [shelfSearch, setShelfSearch] = useState('');
   const { shelves } = useShelves();
 
-  const PAGE_SIZE = 50;
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   // Extract unique categories
   const categories = useMemo(() => {
@@ -84,10 +90,8 @@ export function ProductList({
     });
   }, [filteredProducts, sortField, sortOrder]);
 
-  const visibleProducts = useMemo(
-    () => sortedProducts.slice(0, visibleCount),
-    [sortedProducts, visibleCount]
-  );
+  // When searching, show all results; otherwise show all loaded products
+  const visibleProducts = sortedProducts;
 
   const selectedProducts = useMemo(
     () => products.filter(p => selectedIds.has(p.id)),
@@ -95,8 +99,9 @@ export function ProductList({
   );
 
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [searchQuery, sortField, sortOrder, selectedCategory, PAGE_SIZE]);
+    setSelectedIds(new Set());
+  }, [searchQuery, sortField, sortOrder, selectedCategory]);
+
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -240,7 +245,7 @@ export function ProductList({
       {/* Action Bar */}
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          {filteredProducts.length} ürün
+          {searchResults !== null ? filteredProducts.length : (totalCount ?? filteredProducts.length)} ürün
           {selectedCategory && <span className="ml-1">({selectedCategory})</span>}
         </p>
         <div className="flex items-center gap-2">
@@ -466,18 +471,24 @@ export function ProductList({
         </div>
       )}
 
-      {sortedProducts.length > 0 && sortedProducts.length > visibleCount && (
+      {/* Server-side Load More — only shown when not in search mode */}
+      {searchResults === null && hasMore && onLoadMore && (
         <div className="mt-4 stat-card">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <p className="text-sm text-muted-foreground">
-              Gösterilen: <span className="font-medium text-foreground">{visibleProducts.length}</span> / {sortedProducts.length}
+              Gösterilen: <span className="font-medium text-foreground">{products.length}</span> / <span className="font-medium text-foreground">{totalCount ?? products.length}</span>
             </p>
             <Button
               type="button"
               variant="outline"
-              onClick={() => setVisibleCount((c) => Math.min(c + PAGE_SIZE, sortedProducts.length))}
+              onClick={onLoadMore}
+              disabled={loadingMore}
             >
-              Daha fazla yükle
+              {loadingMore ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Yükleniyor...</>
+              ) : (
+                'Daha fazla yükle'
+              )}
             </Button>
           </div>
         </div>
