@@ -1,71 +1,113 @@
 
+## Show All 24,785 Products — Fast & Without Crashing
 
-## Plan: Fix Missing Products -- Deduplicate Database and Improve Import
+### The Core Problem
 
-### Root Cause
+There are **24,785 products** in the database. Currently:
+- The app tries to fetch up to 5,000 products into device memory on startup
+- The UI then slices those 5,000 into pages of 50 for display
+- Products beyond 5,000 are simply never accessible
 
-The barcode catalog import was run multiple times, creating **6,908 duplicate rows** (12,703 total vs 5,795 unique product codes). Some product codes have up to 11 copies. This causes:
+Loading 24,785 products into memory at once would crash iPhone Safari — this approach fundamentally cannot work. The solution is **server-side pagination**: fetch only the 50 rows that are visible, fetch the next 50 when the user scrolls/clicks "Load More."
 
-1. The product list loads 12,700+ rows when only 5,795 are real -- slow performance and confusion
-2. Barcode scanning may behave inconsistently with duplicate entries
-3. The import page has no protection against re-importing the same file
+---
 
-### Changes
+### Solution: Server-Side Pagination
 
-**1. Database Migration -- Deduplicate Products**
-
-Run a SQL migration that:
-- For each duplicated `urun_kodu`, keeps the row with the highest `mevcut_stok` (or latest `updated_at` as tiebreaker)
-- Soft-deletes all other duplicate rows (`is_deleted = true`)
-- Adds a unique partial index on `urun_kodu` WHERE `is_deleted = false` to prevent future duplicates
-- Expected result: ~6,908 duplicate rows marked as deleted
+#### Architecture Change
 
 ```text
-Step 1: Mark duplicates as deleted (keep best row per urun_kodu)
-Step 2: CREATE UNIQUE INDEX idx_products_unique_kodu ON products(urun_kodu) WHERE is_deleted = false
+CURRENT (broken for large datasets):
+  DB → fetch 5,000 rows → memory → slice 50 → display
+
+NEW (fast + shows all):
+  DB → fetch 50 rows → display
+       ↓ user clicks "Load More"
+  DB → fetch next 50 rows → append → display
+       ↓ user types in search
+  DB → search_products RPC → results → display
 ```
 
-**2. Update `src/pages/ImportBarcodeCatalog.tsx` -- Upsert + Flexible Columns**
+#### What Changes
 
-- Replace `INSERT` with `UPSERT` using `ON CONFLICT(urun_kodu)` to update existing products instead of creating duplicates
-- Add flexible column detection: scan the header row for column names like "Barkod", "Urun Kodu", "Urun Adi" using normalized matching instead of hardcoded indices
-- This ensures any Excel file format works regardless of column order
+**1. `useProducts` hook — initial fetch only 50 rows**
+- Fetch only the first 50 products on startup (fast, no crash)
+- Expose `totalCount` (from a `COUNT` query) so the UI can show "Showing 50 of 24,785"
+- Expose a `loadMore()` function that fetches the next page from the server
+- Keep `addProduct`, `updateProduct`, `deleteProduct` exactly as they are
+- Keep `refreshProducts` working the same way
 
-**3. Update `src/lib/globalSearch.ts` -- Handle edge cases**
+**2. `ProductList` component — wire Load More to server**
+- Remove the local `visibleCount` / `slice` logic
+- The "Load More" button calls `loadMore()` from the hook instead of incrementing a local counter
+- The existing server-search (`useProductSearch` RPC) already works correctly — no changes needed there
+- Show "Showing X of Y" using the real total count from the server
 
-- Ensure `findByBarcode` uses `.limit(1)` consistently (already present but verify)
-- Add a fallback: if `.maybeSingle()` fails due to multiple rows, retry with `.limit(1).single()`
+**3. No change to other pages**
+- Dashboard, Movements, Alerts, Locations — all use `products` from `useProducts`. Since they work with the loaded subset, their behavior stays the same. They do not need all 24,785 products at once; they use the loaded set for their calculations (low stock count, recent movements, etc.)
+
+---
 
 ### Technical Details
 
-Deduplication SQL logic:
-```text
-WITH ranked AS (
-  SELECT id, urun_kodu,
-    ROW_NUMBER() OVER (
-      PARTITION BY urun_kodu
-      ORDER BY mevcut_stok DESC, updated_at DESC
-    ) AS rn
-  FROM products
-  WHERE is_deleted = false
-)
-UPDATE products SET is_deleted = true, deleted_at = now()
-WHERE id IN (SELECT id FROM ranked WHERE rn > 1);
+#### `useProducts` Hook Changes
+
+```typescript
+const PAGE_SIZE = 50;
+
+// Initial load: fast, only 50 rows
+const { data } = await supabase
+  .from('products')
+  .select('*', { count: 'exact' }) // get total count in same query
+  .eq('is_deleted', false)
+  .order('created_at', { ascending: false })
+  .range(0, PAGE_SIZE - 1);
+
+// Returns: products (50 items), totalCount (24785), hasMore (true), loadMore()
 ```
 
-Flexible column detection:
-```text
-function findColumnIndex(headers, ...aliases):
-  normalize each header (lowercase, remove accents, trim)
-  for each alias: try exact match, then startsWith, then includes
-  return first match index or -1
+The `count: 'exact'` option returns the total row count alongside the data in a single request — no extra query needed.
+
+#### `loadMore()` Function
+
+```typescript
+const loadMore = async () => {
+  const nextPage = currentPage + 1;
+  const from = nextPage * PAGE_SIZE;
+  const { data } = await supabase
+    .from('products')
+    .select('*')
+    .eq('is_deleted', false)
+    .order('created_at', { ascending: false })
+    .range(from, from + PAGE_SIZE - 1);
+  
+  setProducts(prev => [...prev, ...mappedData]);
+  setCurrentPage(nextPage);
+};
 ```
 
-Import upsert approach:
-```text
-Instead of: supabase.from('products').insert(batch)
-Use: supabase.from('products').upsert(batch, { onConflict: 'urun_kodu', ignoreDuplicates: false })
-```
+#### Files to Modify
 
-This requires the unique index from step 1 to work.
+| File | Change |
+|------|--------|
+| `src/hooks/useProducts.tsx` | Fetch 50 rows initially, add `loadMore()`, `totalCount`, `hasMore` |
+| `src/components/products/ProductList.tsx` | Remove local slice logic, use `loadMore()` + `totalCount` from hook props |
 
+#### Files NOT changed
+- `src/pages/Index.tsx` — passes products down as before
+- `src/hooks/useProductSearch.tsx` — server search already works perfectly
+- All other pages (Dashboard, Movements, etc.)
+
+---
+
+### Expected Result
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Initial load time | Slow (5,000 rows) | Fast (50 rows) |
+| Products accessible | 5,000 | All 24,785 |
+| Memory usage | High (~50MB) | Low (~1MB initially) |
+| Safari crash risk | High | Eliminated |
+| Search | Works (RPC) | Works (RPC, unchanged) |
+
+The app will start up significantly faster. Users can scroll through all products by clicking "Load More", and search still queries all 24,785 products via the server-side RPC.
