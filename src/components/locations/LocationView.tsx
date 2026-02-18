@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MapPin, Package, AlertTriangle, Plus, Trash2, Edit2, RefreshCw, Grid3X3, List, Search } from 'lucide-react';
 import { Product } from '@/types/stock';
 import { cn } from '@/lib/utils';
@@ -55,6 +55,7 @@ export function LocationView({ products, searchQuery, onViewProduct }: LocationV
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [localSearch, setLocalSearch] = useState('');
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Group locally-loaded products by location (used for search-within-shelf & product list display)
   const locationGroups = products.reduce((groups, product) => {
@@ -97,9 +98,25 @@ export function LocationView({ products, searchQuery, onViewProduct }: LocationV
     .sort();
 
   // Reset visible count when search changes
-  React.useEffect(() => {
+  useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [effectiveSearch]);
+
+  // Infinite scroll via IntersectionObserver
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount(prev => prev + PAGE_SIZE);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [filteredLocations.length]);
 
   const displayedLocations = filteredLocations.slice(0, visibleCount);
   const hasMore = visibleCount < filteredLocations.length;
@@ -255,16 +272,13 @@ export function LocationView({ products, searchQuery, onViewProduct }: LocationV
             )}
           </div>
 
-          {/* Load More */}
+          {/* Infinite Scroll Sentinel */}
           {hasMore && (
-            <div className="flex justify-center">
-              <Button
-                variant="outline"
-                onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
-                className="gap-2"
-              >
-                Daha Fazla Yükle ({filteredLocations.length - visibleCount} kalan)
-              </Button>
+            <div ref={sentinelRef} className="flex justify-center py-8">
+              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Yükleniyor...
+              </div>
             </div>
           )}
         </>
