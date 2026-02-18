@@ -2041,6 +2041,13 @@ export type Database = {
     }
     Functions: {
       generate_order_number: { Args: never; Returns: string }
+      get_shelf_product_counts: {
+        Args: never
+        Returns: {
+          product_count: number
+          raf_konum: string
+        }[]
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]

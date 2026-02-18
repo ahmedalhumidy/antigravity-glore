@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useShelves } from '@/hooks/useShelves';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useShelfProductCounts } from '@/hooks/useShelfProductCounts';
 import { LocationCard } from './LocationCard';
 import { ShelfDialogs } from './ShelfDialogs';
 import { ShelfGridMap } from './ShelfGridMap';
@@ -34,12 +35,14 @@ interface LocationViewProps {
   onViewProduct: (id: string) => void;
 }
 
+
 const PAGE_SIZE = 30;
 
 export function LocationView({ products, searchQuery, onViewProduct }: LocationViewProps) {
   const { shelves, addShelf, updateShelf, deleteShelf, loading, refreshShelves } = useShelves();
   const { hasPermission } = usePermissions();
   const canManageShelves = hasPermission('products.create');
+  const { data: shelfCounts, refetch: refetchShelfCounts } = useShelfProductCounts();
   
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -53,7 +56,7 @@ export function LocationView({ products, searchQuery, onViewProduct }: LocationV
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [localSearch, setLocalSearch] = useState('');
 
-  // Group products by location
+  // Group locally-loaded products by location (used for search-within-shelf & product list display)
   const locationGroups = products.reduce((groups, product) => {
     const location = product.rafKonum;
     if (!groups[location]) {
@@ -63,14 +66,16 @@ export function LocationView({ products, searchQuery, onViewProduct }: LocationV
     return groups;
   }, {} as Record<string, Product[]>);
 
-  // Merge shelves from DB with product locations to show ALL shelves
+  // Merge shelves from DB with server-side shelf counts to show ALL shelves
   const allLocations = new Set<string>();
   
   // Add all shelves from DB
   shelves.forEach(s => allLocations.add(s.name));
   
-  // Add all product locations (in case some aren't in shelves table)
-  Object.keys(locationGroups).forEach(loc => allLocations.add(loc));
+  // Add all locations from server counts (covers shelves not in shelves table)
+  if (shelfCounts) {
+    Object.keys(shelfCounts).forEach(loc => allLocations.add(loc));
+  }
 
   // Combine external searchQuery with local search
   const effectiveSearch = localSearch.trim() || searchQuery;
@@ -138,6 +143,7 @@ export function LocationView({ products, searchQuery, onViewProduct }: LocationV
   const handleRefresh = async () => {
     setIsRefreshing(true);
     refreshShelves();
+    refetchShelfCounts();
     // Small delay to show spinner
     setTimeout(() => setIsRefreshing(false), 800);
   };
@@ -226,6 +232,7 @@ export function LocationView({ products, searchQuery, onViewProduct }: LocationV
                   shelf={shelf}
                   index={index}
                   canManageShelves={canManageShelves}
+                  serverProductCount={shelfCounts?.[location]}
                   onViewProduct={onViewProduct}
                   onEditShelf={openEditDialog}
                   onDeleteShelf={openDeleteDialog}

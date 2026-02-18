@@ -12,6 +12,7 @@ interface LocationCardProps {
   shelf?: Shelf;
   index: number;
   canManageShelves: boolean;
+  serverProductCount?: number;
   onViewProduct: (id: string) => void;
   onEditShelf: (id: string, name: string) => void;
   onDeleteShelf: (id: string) => void;
@@ -23,6 +24,7 @@ export function LocationCard({
   shelf,
   index,
   canManageShelves,
+  serverProductCount,
   onViewProduct,
   onEditShelf,
   onDeleteShelf,
@@ -56,7 +58,7 @@ export function LocationCard({
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              {products.length} ürün
+              {serverProductCount ?? products.length} ürün
               {capacity && <span className="ml-1">/ {capacity} kapasite</span>}
             </p>
           </div>
