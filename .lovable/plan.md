@@ -1,74 +1,98 @@
 
-## Fix: Scroll Broken in Shelf Picker Across All Pages
+## Fix: Shelf Picker Scroll on Mobile — Final Root Cause
 
-### Root Cause Identified
+### What the screenshot shows
+The shelf list dropdown is **open and visible**, but the user **cannot scroll within the list** to see more shelf options. Items 1, 10, 100 (checked), 101 (highlighted), 102, 103 are visible — but scrolling within that list is broken on mobile.
 
-The core problem is in `src/components/shelves/ShelfSelector.tsx`. The `ShelfSelector` component uses a **Radix UI Popover + Command** combination for the shelf dropdown. When the user opens the shelf picker inside a Dialog (like StockActionModal or MovementForm), **two portals stack on top of each other**:
+### True Root Cause
 
-1. The Dialog renders in a portal (z-index: 50)
-2. The Popover also renders in a portal (z-index: 500)
+The `ShelfSelector` uses a **Radix Popover** which renders its content inside a **Portal** (attached to `<body>`). When this Popover is placed inside a **Dialog** (also a Portal):
 
-On mobile, when the Popover opens inside a Dialog, **Radix UI locks the body scroll** to prevent background scrolling. However since both components apply `pointer-events` and scroll-lock at the same time, the scroll lock does not release properly — leaving the entire page frozen after the dropdown closes.
+1. The Dialog has `overflow-y-auto` with `touchAction: pan-y` — it claims all vertical touch events for itself.
+2. The Popover content appears visually above the dialog but **touch events are still captured by the dialog's scroll handler** first.
+3. The result: dragging up/down inside the shelf list scrolls the **dialog** behind it instead of scrolling the **shelf list itself**.
 
-Additionally, `DialogContent` has `overflow-y-auto` which conflicts with Radix's internal scroll locking, preventing the Dialog itself from scrolling when the shelf list is long.
+Setting `modal={false}` on the Popover (done last time) prevents the body scroll lock conflict but does **not** fix the touch event interception by the parent dialog.
 
-### Exact Problems
+### Why Previous Fixes Didn't Work
+- `modal={false}` → Fixed body scroll lock, but not touch event routing
+- `WebkitOverflowScrolling: touch` on `CommandList` → Helps on standalone elements, but when the touch is intercepted by a parent, it never reaches `CommandList`
+- `overscroll-contain` → Same — only works if the element gets the touch events
 
-**Problem 1 — `ShelfSelector` Popover inside Dialog blocks scroll:**
-When `ShelfSelector` (Popover-based) opens inside a Dialog (StockActionModal / MovementForm), Radix applies a body scroll lock that doesn't cleanly release on mobile. The `CommandList` has `max-h-[200px] overflow-y-auto` but the Popover portal competes with the Dialog portal.
+### The Correct Fix: Inline Dropdown (No Portal)
 
-**Problem 2 — `ScanSessionShelfPicker` uses a `Select` inside a Dialog:**
-The `Select` component from Radix renders its content in a portal. Inside a Dialog, this creates the same double-portal scroll lock issue on mobile.
+The only reliable solution for mobile is to **render the shelf list inline** — as an expanding section directly in the DOM, not via a portal. This way:
+- No portal z-index stacking
+- No touch event routing conflicts
+- The dialog scrolls to reveal the expanded list naturally
+- Works exactly like a native `<select>` expand behavior
 
-### Solution
+### Implementation
 
-Replace the Popover-based shelf dropdown with a **native-scroll-safe approach** that doesn't create scroll lock conflicts:
+Replace the `Popover + Command` approach in `ShelfSelector.tsx` with an **inline collapsible list**:
 
-**For `ShelfSelector.tsx`** — Add `modal={false}` to the Popover so it doesn't apply body scroll lock when used inside a Dialog. Also add `avoidCollisions={true}` so it positions correctly without fighting the Dialog's scroll container.
+```
+[Button: "100 — selected shelf"]   ← tap to toggle
+[Search input: "Raf ara..."]        ← visible when open
+[Scrollable list of shelves]        ← max-h-48, overflow-y-auto, touch-action: pan-y
+  ✓ 100
+    101
+    102
+[+ Yeni Raf Ekle]
+```
 
-**For `ScanSessionShelfPicker.tsx`** — The `SelectContent` already has `style={{ WebkitOverflowScrolling: 'touch' }}` but is missing `position="item-aligned"` and the `z-[600]` to render above the Dialog. Fix by passing explicit className to SelectContent.
+This entire structure is in the normal DOM flow inside the form/dialog. No portals involved.
 
-**For `DialogContent` in `dialog.tsx`** — The existing `overflow-y-auto` is correct but needs `touch-action: pan-y` and the `-webkit-overflow-scrolling: touch` property to work on iOS Safari inside modals.
+#### Key styling for the inline list:
+```tsx
+<div 
+  className="max-h-48 overflow-y-auto overscroll-contain border rounded-md bg-popover"
+  style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+>
+  {/* shelf items */}
+</div>
+```
+
+`touch-action: pan-y` on the list itself tells the browser: "this element handles vertical pan gestures" — so iOS Safari passes the touch events to this element instead of bubbling them to the dialog.
 
 ### Files to Change
 
 | File | Change |
 |------|--------|
-| `src/components/shelves/ShelfSelector.tsx` | Add `modal={false}` to Popover, fix z-index on PopoverContent, add touch scroll fix to CommandList |
-| `src/components/ui/dialog.tsx` | Add `-webkit-overflow-scrolling: touch` and `touch-action: pan-y` to DialogContent |
-| `src/modules/scan-session/components/ScanSessionShelfPicker.tsx` | Fix SelectContent z-index and add `position="popper"` for proper mobile rendering |
+| `src/components/shelves/ShelfSelector.tsx` | Replace Popover+Command with inline collapsible list |
 
-### Technical Details
+That's the only file that needs changing. The other files (dialog.tsx, ScanSessionShelfPicker.tsx) are fine as-is.
 
-**`ShelfSelector.tsx` fix — `modal={false}` on Popover:**
-```tsx
-<Popover open={open} onOpenChange={setOpen} modal={false}>
+### What the new ShelfSelector looks like
+
+**Closed state:**
 ```
-`modal={false}` tells Radix NOT to lock body scroll when this Popover opens. This is the correct setting when the Popover is embedded inside a Dialog that already manages scroll locking. Without this, two scroll locks compete and the page freezes.
-
-**`dialog.tsx` fix — iOS scroll:**
-```tsx
-className={cn(
-  "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] max-h-[85vh] overflow-y-auto overscroll-contain gap-4 border bg-background p-6 shadow-lg ...",
-  className,
-)}
-style={{ WebkitOverflowScrolling: 'touch' }}
+[ 📍 100  ▼ ]
 ```
 
-**`ScanSessionShelfPicker.tsx` fix — SelectContent z-index:**
-```tsx
-<SelectContent 
-  className="max-h-[200px] overflow-y-auto z-[600]" 
-  style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
->
+**Open state (inline, no portal):**
+```
+[ 📍 100  ▲ ]
+┌─────────────────────────┐
+│ 🔍 Raf ara...           │
+├─────────────────────────┤
+│   📍 1                  │  ← scrollable on mobile
+│   📍 10                 │
+│ ✓ 📍 100                │
+│   📍 101                │
+│   📍 102                │
+│   ...                   │
+├─────────────────────────┤
+│ + Yeni Raf Ekle         │
+└─────────────────────────┘
 ```
 
-### Expected Result
+The list has `max-h-48` (192px) with `overflow-y-auto` and `touch-action: pan-y`, making it independently scrollable on touch devices regardless of what parent container it lives in.
 
-| Page | Before | After |
-|------|--------|-------|
-| Products Giriş/Çıkış modal | Scroll freezes after opening shelf picker | Scroll works normally |
-| Movement Form | Scroll freezes after opening shelf picker | Scroll works normally |
-| Barcode scanner shelf picker | Select dropdown doesn't scroll on mobile | Select scrolls properly |
-| Scan Session shelf picker | Body scroll locks after Select opens | Body scroll releases cleanly |
-| All pages after closing any modal | Page may remain un-scrollable | Page always scrollable |
+### Why This Works
+
+- No Portal → no touch event routing conflict  
+- `touch-action: pan-y` on the list → browser gives vertical touches directly to the list element  
+- Inline DOM → dialog's `overflow-y-auto` will scroll the dialog to show the expanded list if needed (correct behavior)  
+- Search input still filters items in real-time via local `useState`  
+- "Yeni Raf Ekle" still opens the add-shelf Dialog as before
