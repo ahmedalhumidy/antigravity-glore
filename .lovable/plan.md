@@ -1,146 +1,74 @@
 
-## Fix: Dashboard Showing Wrong Counts & Shelf Cards Showing Empty
+## Fix: Scroll Broken in Shelf Picker Across All Pages
 
-### Root Cause Analysis
+### Root Cause Identified
 
-Three distinct bugs remain after the previous fix:
+The core problem is in `src/components/shelves/ShelfSelector.tsx`. The `ShelfSelector` component uses a **Radix UI Popover + Command** combination for the shelf dropdown. When the user opens the shelf picker inside a Dialog (like StockActionModal or MovementForm), **two portals stack on top of each other**:
 
-**Bug 1 — Dashboard "Toplam Ürün" = 50:**
-`Dashboard.tsx` line 26: `const totalProducts = products.length;` — uses the local 50-product array, not the real total.
+1. The Dialog renders in a portal (z-index: 50)
+2. The Popover also renders in a portal (z-index: 500)
 
-**Bug 2 — Dashboard "Toplam Stok" = 0:**
-`Dashboard.tsx` line 27: `const totalStock = products.reduce(...)` — sums stock from only the 50 loaded products. Needs a server-side aggregation query.
+On mobile, when the Popover opens inside a Dialog, **Radix UI locks the body scroll** to prevent background scrolling. However since both components apply `pointer-events` and scroll-lock at the same time, the scroll lock does not release properly — leaving the entire page frozen after the dropdown closes.
 
-**Bug 3 — Shelf cards show "Bu rafta henüz ürün yok" even though the count says "2 ürün":**
-`LocationCard.tsx` line 107: `{products.length > 0 ? ... : <empty message>}` — this checks the CLIENT-side products array (only the 50 loaded ones). Even though `serverProductCount` correctly comes from the RPC and shows "2", the card body still uses `products.length` to decide whether to show the empty state. Since those 2 products are not in the 50 loaded ones, `products.length === 0`, so it shows "Bu rafta henüz ürün yok".
+Additionally, `DialogContent` has `overflow-y-auto` which conflicts with Radix's internal scroll locking, preventing the Dialog itself from scrolling when the shelf list is long.
 
----
+### Exact Problems
+
+**Problem 1 — `ShelfSelector` Popover inside Dialog blocks scroll:**
+When `ShelfSelector` (Popover-based) opens inside a Dialog (StockActionModal / MovementForm), Radix applies a body scroll lock that doesn't cleanly release on mobile. The `CommandList` has `max-h-[200px] overflow-y-auto` but the Popover portal competes with the Dialog portal.
+
+**Problem 2 — `ScanSessionShelfPicker` uses a `Select` inside a Dialog:**
+The `Select` component from Radix renders its content in a portal. Inside a Dialog, this creates the same double-portal scroll lock issue on mobile.
 
 ### Solution
 
-#### Fix 1 & 2 — Dashboard stats via server-side aggregation
+Replace the Popover-based shelf dropdown with a **native-scroll-safe approach** that doesn't create scroll lock conflicts:
 
-Create a new lightweight hook `useDashboardStats` that fetches:
-- Total product count
-- Total current stock sum  
-- Count of low-stock products
+**For `ShelfSelector.tsx`** — Add `modal={false}` to the Popover so it doesn't apply body scroll lock when used inside a Dialog. Also add `avoidCollisions={true}` so it positions correctly without fighting the Dialog's scroll container.
 
-This is a single SQL query returning 3 numbers — extremely fast.
+**For `ScanSessionShelfPicker.tsx`** — The `SelectContent` already has `style={{ WebkitOverflowScrolling: 'touch' }}` but is missing `position="item-aligned"` and the `z-[600]` to render above the Dialog. Fix by passing explicit className to SelectContent.
 
-```sql
-SELECT 
-  COUNT(*) as total_products,
-  SUM(mevcut_stok) as total_stock,
-  COUNT(*) FILTER (WHERE mevcut_stok < min_stok) as low_stock_count
-FROM products 
-WHERE is_deleted = false
-```
-
-This gets wrapped as a new RPC function `get_dashboard_stats` so we bypass the row limit.
-
-`Dashboard.tsx` will accept these as optional override props: if provided, use them for the stat cards; if not, fall back to the local products array (for backwards compatibility).
-
-#### Fix 3 — LocationCard empty state logic
-
-Change the condition in `LocationCard.tsx` from:
-```typescript
-{products.length > 0 ? <product list> : <empty message>}
-```
-to:
-```typescript
-{products.length > 0 
-  ? <product list>  
-  : serverProductCount && serverProductCount > 0
-    ? <"loading notice — products exist but not yet loaded in this session">
-    : <"truly empty" message>
-}
-```
-
-When `serverProductCount > 0` but `products.length === 0`, show a neutral info state like:
-- Icon: Package (dimmed)
-- Text: "Bu raftaki ürünler yüklendiğinde gösterilecek" (Products in this shelf will appear when loaded)
-- This is honest and correct — the products exist in the database, they just aren't in the current 50-item window
-
-Also fix the "Toplam" footer: currently shows `totalStock` calculated from local products (0 if none loaded). Change to show `serverProductCount` count instead when no products are loaded locally.
-
----
+**For `DialogContent` in `dialog.tsx`** — The existing `overflow-y-auto` is correct but needs `touch-action: pan-y` and the `-webkit-overflow-scrolling: touch` property to work on iOS Safari inside modals.
 
 ### Files to Change
 
 | File | Change |
 |------|--------|
-| DB migration | Add `get_dashboard_stats()` RPC |
-| `src/hooks/useDashboardStats.tsx` (NEW) | Fetch totals from server |
-| `src/components/dashboard/Dashboard.tsx` | Accept `serverStats` prop, use for stat cards |
-| `src/pages/Index.tsx` | Use `useDashboardStats`, pass to Dashboard |
-| `src/components/locations/LocationCard.tsx` | Fix empty state logic to check `serverProductCount` |
-
----
-
-### What Each Fix Looks Like
-
-**Dashboard stat cards (after fix):**
-- TOPLAM ÜRÜN: 24,785 (from server)
-- TOPLAM STOK: real sum (from server)  
-- DÜŞÜK STOK: real count (from server)
-- Toplam Giriş/Çıkış: from movements (unchanged, correct)
-
-**Shelf card (after fix):**
-- Header: "Raf 1 — 2 ürün" (from serverProductCount, already correct)
-- Body: "Bu raftaki ürünler yüklendiğinde gösterilecek" (honest loading state)
-- Footer: shows the server count "2 ürün" instead of "0 adet"
-
----
+| `src/components/shelves/ShelfSelector.tsx` | Add `modal={false}` to Popover, fix z-index on PopoverContent, add touch scroll fix to CommandList |
+| `src/components/ui/dialog.tsx` | Add `-webkit-overflow-scrolling: touch` and `touch-action: pan-y` to DialogContent |
+| `src/modules/scan-session/components/ScanSessionShelfPicker.tsx` | Fix SelectContent z-index and add `position="popper"` for proper mobile rendering |
 
 ### Technical Details
 
-**New RPC function:**
-```sql
-CREATE OR REPLACE FUNCTION get_dashboard_stats()
-RETURNS TABLE(
-  total_products bigint,
-  total_stock bigint,
-  low_stock_count bigint
-)
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-  SELECT 
-    COUNT(*) as total_products,
-    COALESCE(SUM(mevcut_stok), 0) as total_stock,
-    COUNT(*) FILTER (WHERE mevcut_stok < min_stok) as low_stock_count
-  FROM products 
-  WHERE is_deleted = false;
-$$;
+**`ShelfSelector.tsx` fix — `modal={false}` on Popover:**
+```tsx
+<Popover open={open} onOpenChange={setOpen} modal={false}>
+```
+`modal={false}` tells Radix NOT to lock body scroll when this Popover opens. This is the correct setting when the Popover is embedded inside a Dialog that already manages scroll locking. Without this, two scroll locks compete and the page freezes.
+
+**`dialog.tsx` fix — iOS scroll:**
+```tsx
+className={cn(
+  "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] max-h-[85vh] overflow-y-auto overscroll-contain gap-4 border bg-background p-6 shadow-lg ...",
+  className,
+)}
+style={{ WebkitOverflowScrolling: 'touch' }}
 ```
 
-**New hook `useDashboardStats`:**
-```typescript
-export const useDashboardStats = () => {
-  return useQuery({
-    queryKey: ['dashboardStats'],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_dashboard_stats');
-      if (error) throw error;
-      return data?.[0] ?? { total_products: 0, total_stock: 0, low_stock_count: 0 };
-    },
-    staleTime: 1000 * 60 * 2,
-  });
-};
+**`ScanSessionShelfPicker.tsx` fix — SelectContent z-index:**
+```tsx
+<SelectContent 
+  className="max-h-[200px] overflow-y-auto z-[600]" 
+  style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+>
 ```
 
-**Dashboard.tsx change:**
-```typescript
-// Accept server stats as props
-interface DashboardProps {
-  products: Product[];
-  movements: StockMovement[];
-  onViewProduct: (id: string) => void;
-  serverStats?: { total_products: number; total_stock: number; low_stock_count: number };
-}
+### Expected Result
 
-// Use server stats when available
-const totalProducts = serverStats?.total_products ?? products.length;
-const totalStock = serverStats?.total_stock ?? products.reduce((sum, p) => sum + p.mevcutStok, 0);
-const lowStockCount = serverStats?.low_stock_count ?? products.filter(p => p.mevcutStok < p.minStok).length;
-```
+| Page | Before | After |
+|------|--------|-------|
+| Products Giriş/Çıkış modal | Scroll freezes after opening shelf picker | Scroll works normally |
+| Movement Form | Scroll freezes after opening shelf picker | Scroll works normally |
+| Barcode scanner shelf picker | Select dropdown doesn't scroll on mobile | Select scrolls properly |
+| Scan Session shelf picker | Body scroll locks after Select opens | Body scroll releases cleanly |
+| All pages after closing any modal | Page may remain un-scrollable | Page always scrollable |
