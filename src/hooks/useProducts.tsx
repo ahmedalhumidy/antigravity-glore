@@ -3,18 +3,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/stock';
 import { toast } from 'sonner';
 
+// Hard cap to prevent iOS Safari memory crash with 20,000+ products
+const MAX_PRODUCTS = 5000;
+
 export function useProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchProducts = async () => {
     try {
-      // Fetch all products (Supabase default limit is 1000, we may have more)
       let allData: any[] = [];
       let from = 0;
       const pageSize = 1000;
-      
-      while (true) {
+
+      while (allData.length < MAX_PRODUCTS) {
         const { data, error: fetchError } = await supabase
           .from('products')
           .select('*')
@@ -24,20 +26,21 @@ export function useProducts() {
 
         if (fetchError) throw fetchError;
         if (!data || data.length === 0) break;
-        
+
         allData = allData.concat(data);
         if (data.length < pageSize) break;
         from += pageSize;
       }
 
-      const data = allData;
+      // Cap at MAX_PRODUCTS to protect mobile memory
+      const data = allData.slice(0, MAX_PRODUCTS);
 
       if (data.length === 0) {
         setProducts([]);
         return;
       }
 
-      const mappedProducts: Product[] = (data || []).map(p => ({
+      const mappedProducts: Product[] = data.map(p => ({
         id: p.id,
         urunKodu: p.urun_kodu,
         urunAdi: p.urun_adi,
@@ -152,11 +155,10 @@ export function useProducts() {
 
   const deleteProduct = async (id: string) => {
     try {
-      // Soft delete - set is_deleted to true
       const { error } = await supabase
         .from('products')
-        .update({ 
-          is_deleted: true, 
+        .update({
+          is_deleted: true,
           deleted_at: new Date().toISOString(),
         })
         .eq('id', id);
