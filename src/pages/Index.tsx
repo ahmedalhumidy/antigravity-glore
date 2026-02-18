@@ -235,9 +235,8 @@ const Index = () => {
     'uretim-dabo': "Dabo",
   };
 
-  const isLoading = productsLoading || movementsLoading;
-
-  if (isLoading) {
+  // Only block on products loading - movements load independently
+  if (productsLoading) {
     return (
       <div className="min-h-screen bg-background">
         <div className="hidden lg:block">
