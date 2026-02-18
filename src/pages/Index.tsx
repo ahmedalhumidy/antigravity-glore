@@ -18,6 +18,7 @@ import { AlertList } from "@/components/alerts/AlertList";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { Product, ViewMode } from "@/types/stock";
 import { useProducts } from "@/hooks/useProducts";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useMovements } from "@/hooks/useMovements";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentView } from "@/hooks/useCurrentView";
@@ -93,6 +94,7 @@ function SkeletonLoader() {
 const Index = () => {
   const { signOut, user } = useAuth();
   const searchCtrl = useSearchController();
+  const { data: dashboardStats } = useDashboardStats();
   const {
     products,
     loading: productsLoading,
@@ -301,7 +303,7 @@ const Index = () => {
 
           {/* Content */}
           {currentView === "dashboard" && (
-            <Dashboard products={products} movements={movements} onViewProduct={handleViewProduct} />
+            <Dashboard products={products} movements={movements} onViewProduct={handleViewProduct} serverStats={dashboardStats} />
           )}
 
           {currentView === "products" && (

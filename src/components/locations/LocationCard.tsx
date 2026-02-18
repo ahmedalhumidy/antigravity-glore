@@ -128,6 +128,12 @@ export function LocationCard({
             );
           })}
         </div>
+      ) : serverProductCount && serverProductCount > 0 ? (
+        <div className="py-6 text-center">
+          <Package className="w-8 h-8 text-primary/30 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground font-medium">{serverProductCount} ürün mevcut</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">Detaylar için ürünler sayfasını açın</p>
+        </div>
       ) : (
         <div className="py-6 text-center">
           <Package className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
@@ -137,11 +143,19 @@ export function LocationCard({
 
       <div className="mt-4 pt-3 border-t border-border">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Toplam</span>
+          <span className="text-sm text-muted-foreground">Toplam Stok</span>
           <div className="text-right">
-            <span className="font-semibold text-foreground">{totalStock} adet</span>
-            {totalSetStock > 0 && (
-              <span className="text-sm text-muted-foreground ml-2">+ {totalSetStock} set</span>
+            {products.length > 0 ? (
+              <>
+                <span className="font-semibold text-foreground">{totalStock} adet</span>
+                {totalSetStock > 0 && (
+                  <span className="text-sm text-muted-foreground ml-2">+ {totalSetStock} set</span>
+                )}
+              </>
+            ) : (
+              <span className="font-semibold text-muted-foreground">
+                {serverProductCount ?? 0} ürün
+              </span>
             )}
           </div>
         </div>

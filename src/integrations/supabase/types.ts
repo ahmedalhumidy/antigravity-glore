@@ -2041,6 +2041,14 @@ export type Database = {
     }
     Functions: {
       generate_order_number: { Args: never; Returns: string }
+      get_dashboard_stats: {
+        Args: never
+        Returns: {
+          low_stock_count: number
+          total_products: number
+          total_stock: number
+        }[]
+      }
       get_shelf_product_counts: {
         Args: never
         Returns: {
