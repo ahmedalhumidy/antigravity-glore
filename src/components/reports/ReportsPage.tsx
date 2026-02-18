@@ -17,7 +17,7 @@ interface ReportsPageProps {
 type ReportTab = 'movements' | 'products' | 'users';
 
 export function ReportsPage({ products, movements }: ReportsPageProps) {
-  const { hasPermission } = usePermissions();
+  const { hasPermission, loading: permissionsLoading } = usePermissions();
   const canViewReports = hasPermission('reports.view');
   
   const [activeTab, setActiveTab] = useState<ReportTab>('movements');
@@ -28,6 +28,14 @@ export function ReportsPage({ products, movements }: ReportsPageProps) {
     userId: null,
     movementType: null,
   });
+
+  if (permissionsLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   if (!canViewReports) {
     return (
