@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Package, MapPin, AlertTriangle, ArrowUpDown, Download, Plus, Minus, Search, Loader2, Filter } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Product } from '@/types/stock';
@@ -471,27 +471,70 @@ export function ProductList({
         </div>
       )}
 
-      {/* Server-side Load More — only shown when not in search mode */}
-      {searchResults === null && hasMore && onLoadMore && (
-        <div className="mt-4 stat-card">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              Gösterilen: <span className="font-medium text-foreground">{products.length}</span> / <span className="font-medium text-foreground">{totalCount ?? products.length}</span>
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onLoadMore}
-              disabled={loadingMore}
-            >
-              {loadingMore ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Yükleniyor...</>
-              ) : (
-                'Daha fazla yükle'
-              )}
-            </Button>
-          </div>
-        </div>
+      {/* Infinite scroll sentinel — auto-loads next page when visible */}
+      {searchResults === null && onLoadMore && (
+        <InfiniteScrollSentinel
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={onLoadMore}
+          loaded={products.length}
+          total={totalCount ?? products.length}
+        />
+      )}
+    </div>
+  );
+}
+
+// Infinite scroll sentinel — uses IntersectionObserver to auto-load
+function InfiniteScrollSentinel({
+  hasMore,
+  loadingMore,
+  onLoadMore,
+  loaded,
+  total,
+}: {
+  hasMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
+  loaded: number;
+  total: number;
+}) {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!hasMore || loadingMore) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          onLoadMore();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, onLoadMore]);
+
+  if (!hasMore && !loadingMore) {
+    return (
+      <p className="text-center text-xs text-muted-foreground py-4">
+        Tüm ürünler yüklendi ({total.toLocaleString('tr-TR')} ürün)
+      </p>
+    );
+  }
+
+  return (
+    <div ref={sentinelRef} className="flex flex-col items-center gap-2 py-6">
+      {loadingMore && (
+        <>
+          <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+          <p className="text-xs text-muted-foreground">
+            {loaded.toLocaleString('tr-TR')} / {total.toLocaleString('tr-TR')} ürün yüklendi
+          </p>
+        </>
       )}
     </div>
   );
