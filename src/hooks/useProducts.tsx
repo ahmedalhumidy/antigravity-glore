@@ -1,75 +1,92 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/stock';
 import { toast } from 'sonner';
 
-// Hard cap to prevent iOS Safari memory crash with 20,000+ products
-const MAX_PRODUCTS = 5000;
+const PAGE_SIZE = 50;
+
+function mapRow(p: any): Product {
+  return {
+    id: p.id,
+    urunKodu: p.urun_kodu,
+    urunAdi: p.urun_adi,
+    rafKonum: p.raf_konum,
+    barkod: p.barkod || undefined,
+    acilisStok: p.acilis_stok,
+    toplamGiris: p.toplam_giris,
+    toplamCikis: p.toplam_cikis,
+    mevcutStok: p.mevcut_stok,
+    setStok: p.set_stok || 0,
+    minStok: p.min_stok,
+    uyari: p.uyari,
+    sonIslemTarihi: p.son_islem_tarihi || undefined,
+    not: p.notes || undefined,
+    category: p.category || undefined,
+  };
+}
 
 export function useProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
 
-  const fetchProducts = async () => {
+  const hasMore = products.length < totalCount;
+
+  const fetchProducts = useCallback(async () => {
     try {
-      let allData: any[] = [];
-      let from = 0;
-      const pageSize = 1000;
+      setLoading(true);
+      const { data, error, count } = await supabase
+        .from('products')
+        .select('*', { count: 'exact' })
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false })
+        .range(0, PAGE_SIZE - 1);
 
-      while (allData.length < MAX_PRODUCTS) {
-        const { data, error: fetchError } = await supabase
-          .from('products')
-          .select('*')
-          .eq('is_deleted', false)
-          .order('created_at', { ascending: false })
-          .range(from, from + pageSize - 1);
+      if (error) throw error;
 
-        if (fetchError) throw fetchError;
-        if (!data || data.length === 0) break;
-
-        allData = allData.concat(data);
-        if (data.length < pageSize) break;
-        from += pageSize;
-      }
-
-      // Cap at MAX_PRODUCTS to protect mobile memory
-      const data = allData.slice(0, MAX_PRODUCTS);
-
-      if (data.length === 0) {
-        setProducts([]);
-        return;
-      }
-
-      const mappedProducts: Product[] = data.map(p => ({
-        id: p.id,
-        urunKodu: p.urun_kodu,
-        urunAdi: p.urun_adi,
-        rafKonum: p.raf_konum,
-        barkod: p.barkod || undefined,
-        acilisStok: p.acilis_stok,
-        toplamGiris: p.toplam_giris,
-        toplamCikis: p.toplam_cikis,
-        mevcutStok: p.mevcut_stok,
-        setStok: p.set_stok || 0,
-        minStok: p.min_stok,
-        uyari: p.uyari,
-        sonIslemTarihi: p.son_islem_tarihi || undefined,
-        not: p.notes || undefined,
-        category: p.category || undefined,
-      }));
-
-      setProducts(mappedProducts);
+      setTotalCount(count ?? 0);
+      setCurrentPage(0);
+      setProducts((data || []).map(mapRow));
     } catch (error) {
       console.error('Error fetching products:', error);
       toast.error('Ürünler yüklenirken hata oluştu');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [fetchProducts]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore) return;
+    try {
+      setLoadingMore(true);
+      const nextPage = currentPage + 1;
+      const from = nextPage * PAGE_SIZE;
+
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+
+      if (error) throw error;
+
+      const mapped = (data || []).map(mapRow);
+      setProducts(prev => [...prev, ...mapped]);
+      setCurrentPage(nextPage);
+    } catch (error) {
+      console.error('Error loading more products:', error);
+      toast.error('Daha fazla ürün yüklenirken hata oluştu');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [currentPage, loadingMore]);
 
   const addProduct = async (productData: Omit<Product, 'id'>) => {
     try {
@@ -94,24 +111,9 @@ export function useProducts() {
 
       if (error) throw error;
 
-      const newProduct: Product = {
-        id: data.id,
-        urunKodu: data.urun_kodu,
-        urunAdi: data.urun_adi,
-        rafKonum: data.raf_konum,
-        barkod: data.barkod || undefined,
-        acilisStok: data.acilis_stok,
-        toplamGiris: data.toplam_giris,
-        toplamCikis: data.toplam_cikis,
-        mevcutStok: data.mevcut_stok,
-        setStok: data.set_stok || 0,
-        minStok: data.min_stok,
-        uyari: data.uyari,
-        sonIslemTarihi: data.son_islem_tarihi || undefined,
-        not: data.notes || undefined,
-      };
-
+      const newProduct = mapRow(data);
       setProducts(prev => [newProduct, ...prev]);
+      setTotalCount(prev => prev + 1);
       toast.success('Yeni ürün eklendi');
       return newProduct;
     } catch (error) {
@@ -167,6 +169,7 @@ export function useProducts() {
 
       const product = products.find(p => p.id === id);
       setProducts(prev => prev.filter(p => p.id !== id));
+      setTotalCount(prev => prev - 1);
       toast.success(`${product?.urunAdi || 'Ürün'} arşivlendi`);
       return true;
     } catch (error) {
@@ -177,13 +180,16 @@ export function useProducts() {
   };
 
   const refreshProducts = () => {
-    setLoading(true);
     fetchProducts();
   };
 
   return {
     products,
     loading,
+    loadingMore,
+    totalCount,
+    hasMore,
+    loadMore,
     addProduct,
     updateProduct,
     deleteProduct,

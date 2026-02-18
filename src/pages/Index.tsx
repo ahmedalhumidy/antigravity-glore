@@ -96,6 +96,10 @@ const Index = () => {
   const {
     products,
     loading: productsLoading,
+    loadingMore,
+    totalCount,
+    hasMore,
+    loadMore,
     addProduct,
     updateProduct,
     deleteProduct,
@@ -307,6 +311,10 @@ const Index = () => {
               onDeleteProduct={handleDeleteProduct}
               onViewProduct={handleViewProduct}
               onStockAction={handleStockAction}
+              totalCount={totalCount}
+              hasMore={hasMore}
+              loadingMore={loadingMore}
+              onLoadMore={loadMore}
             />
           )}
 
