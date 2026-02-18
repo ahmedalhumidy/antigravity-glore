@@ -245,7 +245,11 @@ export function ProductList({
       {/* Action Bar */}
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          {searchResults !== null ? filteredProducts.length : (totalCount ?? filteredProducts.length)} ürün
+          {searchResults !== null
+            ? `${filteredProducts.length} sonuç`
+            : totalCount != null
+              ? `${totalCount.toLocaleString('tr-TR')} ürün`
+              : `${filteredProducts.length} ürün`}
           {selectedCategory && <span className="ml-1">({selectedCategory})</span>}
         </p>
         <div className="flex items-center gap-2">
