@@ -16,17 +16,18 @@ interface DashboardProps {
   products: Product[];
   movements: StockMovement[];
   onViewProduct: (id: string) => void;
+  serverStats?: { total_products: number; total_stock: number; low_stock_count: number };
 }
 
 type ChartPeriod = 'today' | 'week' | 'month';
 
-export function Dashboard({ products, movements, onViewProduct }: DashboardProps) {
+export function Dashboard({ products, movements, onViewProduct, serverStats }: DashboardProps) {
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('week');
   
-  const totalProducts = products.length;
-  const totalStock = products.reduce((sum, p) => sum + p.mevcutStok, 0);
+  const totalProducts = serverStats?.total_products ?? products.length;
+  const totalStock = serverStats?.total_stock ?? products.reduce((sum, p) => sum + p.mevcutStok, 0);
+  const lowStockCount = serverStats?.low_stock_count ?? products.filter(p => p.mevcutStok < p.minStok).length;
   const lowStockProducts = products.filter(p => p.mevcutStok < p.minStok);
-  const lowStockCount = lowStockProducts.length;
   
   const totalIn = movements.filter(m => m.type === 'giris').reduce((sum, m) => sum + m.quantity, 0);
   const totalOut = movements.filter(m => m.type === 'cikis').reduce((sum, m) => sum + m.quantity, 0);
