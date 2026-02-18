@@ -1,111 +1,146 @@
 
-## Fix: Product Count Display & Empty Shelves
+## Fix: Dashboard Showing Wrong Counts & Shelf Cards Showing Empty
 
 ### Root Cause Analysis
 
-**Two separate bugs caused by the server-side pagination change:**
+Three distinct bugs remain after the previous fix:
 
-**Bug 1 — Product count shows "50" instead of the real total:**
-In `ProductList.tsx` line 248:
-```typescript
-{searchResults !== null ? filteredProducts.length : (totalCount ?? filteredProducts.length)} ürün
-```
-This line is correct — it uses `totalCount` when not searching. However, the `InfiniteScrollSentinel` only shows "X / Y products loaded" during loading, but the main counter at the top correctly reads from `totalCount`. The issue the user sees might be that the counter shows `50` initially (before `totalCount` loads), or confusion between "loaded" vs "total." The fix is to make the top counter clearly say **"X loaded of Y total"** so there's no ambiguity.
+**Bug 1 — Dashboard "Toplam Ürün" = 50:**
+`Dashboard.tsx` line 26: `const totalProducts = products.length;` — uses the local 50-product array, not the real total.
 
-**Bug 2 — Shelves page shows all shelves as empty (critical):**
-`LocationView` builds `locationGroups` by iterating over `products` prop received from `Index.tsx`. Since pagination now delivers only **50 products** initially, only 50 products' shelf locations are populated. All other shelves appear with 0 products even though they have products in the database.
+**Bug 2 — Dashboard "Toplam Stok" = 0:**
+`Dashboard.tsx` line 27: `const totalStock = products.reduce(...)` — sums stock from only the 50 loaded products. Needs a server-side aggregation query.
 
-This is the fundamental conflict: the shelves page **needs to know how many products are in each shelf** for the entire catalog, but pagination only provides a 50-item window.
+**Bug 3 — Shelf cards show "Bu rafta henüz ürün yok" even though the count says "2 ürün":**
+`LocationCard.tsx` line 107: `{products.length > 0 ? ... : <empty message>}` — this checks the CLIENT-side products array (only the 50 loaded ones). Even though `serverProductCount` correctly comes from the RPC and shows "2", the card body still uses `products.length` to decide whether to show the empty state. Since those 2 products are not in the 50 loaded ones, `products.length === 0`, so it shows "Bu rafta henüz ürün yok".
+
+---
 
 ### Solution
 
-#### Fix 1 — Product list counter (simple)
-Update the counter text in `ProductList.tsx` to clearly differentiate between loaded products and total:
-- When not searching: Show **"5,795 toplam ürün · 50 yüklendi"** format
-- When searching: Show search result count normally
+#### Fix 1 & 2 — Dashboard stats via server-side aggregation
 
-#### Fix 2 — Shelves page (core fix)
-The shelves page must fetch its own shelf-product counts from the **server** instead of deriving them from the client-side `products` prop. Two approaches:
+Create a new lightweight hook `useDashboardStats` that fetches:
+- Total product count
+- Total current stock sum  
+- Count of low-stock products
 
-**Chosen approach: Dedicated shelf count query in `LocationView`**
-
-Add a separate lightweight query that fetches `raf_konum` and `COUNT` for all products grouped by shelf. This is a single aggregation query that returns ~200 rows (one per shelf), not 24,000 products. It is fast, memory-efficient, and gives accurate per-shelf counts.
+This is a single SQL query returning 3 numbers — extremely fast.
 
 ```sql
-SELECT raf_konum, COUNT(*) as count 
+SELECT 
+  COUNT(*) as total_products,
+  SUM(mevcut_stok) as total_stock,
+  COUNT(*) FILTER (WHERE mevcut_stok < min_stok) as low_stock_count
 FROM products 
-WHERE is_deleted = false 
-GROUP BY raf_konum
+WHERE is_deleted = false
 ```
 
-This replaces the broken client-side `locationGroups` derivation for the shelves page.
+This gets wrapped as a new RPC function `get_dashboard_stats` so we bypass the row limit.
 
-### Technical Changes
+`Dashboard.tsx` will accept these as optional override props: if provided, use them for the stat cards; if not, fall back to the local products array (for backwards compatibility).
 
-#### File 1: `src/hooks/useShelfProductCounts.tsx` (NEW)
-A new lightweight hook that fetches per-shelf product counts via a single GROUP BY query. Returns a `Record<string, number>` mapping `shelfName → productCount`.
+#### Fix 3 — LocationCard empty state logic
 
+Change the condition in `LocationCard.tsx` from:
 ```typescript
-// Fetches { "RAF-A1": 42, "RAF-B3": 17, ... }
-const { data } = await supabase
-  .from('products')
-  .select('raf_konum')
-  .eq('is_deleted', false);
-
-// Group client-side from this small result set
+{products.length > 0 ? <product list> : <empty message>}
+```
+to:
+```typescript
+{products.length > 0 
+  ? <product list>  
+  : serverProductCount && serverProductCount > 0
+    ? <"loading notice — products exist but not yet loaded in this session">
+    : <"truly empty" message>
+}
 ```
 
-Wait — this still hits the 1000-row limit per Supabase default. The right approach is an RPC function:
+When `serverProductCount > 0` but `products.length === 0`, show a neutral info state like:
+- Icon: Package (dimmed)
+- Text: "Bu raftaki ürünler yüklendiğinde gösterilecek" (Products in this shelf will appear when loaded)
+- This is honest and correct — the products exist in the database, they just aren't in the current 50-item window
 
-```sql
--- Returns rows like: { raf_konum: "RAF-A1", product_count: 42 }
-CREATE OR REPLACE FUNCTION get_shelf_product_counts()
-RETURNS TABLE(raf_konum text, product_count bigint)
-LANGUAGE sql STABLE SECURITY DEFINER
-AS $$
-  SELECT raf_konum, COUNT(*) as product_count
-  FROM products
-  WHERE is_deleted = false
-  GROUP BY raf_konum;
-$$;
-```
+Also fix the "Toplam" footer: currently shows `totalStock` calculated from local products (0 if none loaded). Change to show `serverProductCount` count instead when no products are loaded locally.
 
-This RPC returns ~200 rows (one per shelf), completely bypassing the row limit issue. It is the correct and scalable solution.
+---
 
-#### File 2: `src/components/locations/LocationView.tsx`
-- Remove dependency on the `products` prop for building `locationGroups`
-- Instead call the new `get_shelf_product_counts` RPC to get accurate per-shelf counts
-- Pass counts to `LocationCard` for display
-- Keep using `products` prop for search-within-shelf functionality (product names/codes)
-- The shelf cards will show accurate counts from the server
-
-#### File 3: `src/components/locations/LocationCard.tsx`
-- Accept an optional `productCount` override prop from the RPC result
-- Use the server count as the display count when available
-
-#### File 4: `src/components/products/ProductList.tsx` (line ~248)
-- Improve the counter display: clearly show both loaded count and total count
-- Example: `"5,795 ürün"` (just use totalCount, which is already accurate)
-- The current code at line 248 already uses `totalCount` correctly — the fix is to ensure `totalCount` is always shown with proper formatting
-
-### Database Change Required
-A new SQL function `get_shelf_product_counts` needs to be created. This will be done via a database migration.
-
-### Summary of Files
+### Files to Change
 
 | File | Change |
 |------|--------|
-| DB migration | Add `get_shelf_product_counts()` RPC function |
-| `src/hooks/useShelfProductCounts.tsx` | New hook calling the RPC |
-| `src/components/locations/LocationView.tsx` | Use RPC counts instead of client products prop |
-| `src/components/locations/LocationCard.tsx` | Accept server-side `productCount` prop |
-| `src/components/products/ProductList.tsx` | Polish counter display |
+| DB migration | Add `get_dashboard_stats()` RPC |
+| `src/hooks/useDashboardStats.tsx` (NEW) | Fetch totals from server |
+| `src/components/dashboard/Dashboard.tsx` | Accept `serverStats` prop, use for stat cards |
+| `src/pages/Index.tsx` | Use `useDashboardStats`, pass to Dashboard |
+| `src/components/locations/LocationCard.tsx` | Fix empty state logic to check `serverProductCount` |
 
-### Expected Result
+---
 
-| Issue | Before | After |
-|-------|--------|-------|
-| Product count | Shows "50" (only loaded) | Shows "5,795" (real total) |
-| Shelves with products | Show 0 products (only 50 loaded) | Show real counts from server |
-| Shelves page performance | Depends on 24K products in memory | Single aggregation query (~200 rows) |
-| Memory usage | Unchanged | Unchanged (no new bulk fetching) |
+### What Each Fix Looks Like
+
+**Dashboard stat cards (after fix):**
+- TOPLAM ÜRÜN: 24,785 (from server)
+- TOPLAM STOK: real sum (from server)  
+- DÜŞÜK STOK: real count (from server)
+- Toplam Giriş/Çıkış: from movements (unchanged, correct)
+
+**Shelf card (after fix):**
+- Header: "Raf 1 — 2 ürün" (from serverProductCount, already correct)
+- Body: "Bu raftaki ürünler yüklendiğinde gösterilecek" (honest loading state)
+- Footer: shows the server count "2 ürün" instead of "0 adet"
+
+---
+
+### Technical Details
+
+**New RPC function:**
+```sql
+CREATE OR REPLACE FUNCTION get_dashboard_stats()
+RETURNS TABLE(
+  total_products bigint,
+  total_stock bigint,
+  low_stock_count bigint
+)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+  SELECT 
+    COUNT(*) as total_products,
+    COALESCE(SUM(mevcut_stok), 0) as total_stock,
+    COUNT(*) FILTER (WHERE mevcut_stok < min_stok) as low_stock_count
+  FROM products 
+  WHERE is_deleted = false;
+$$;
+```
+
+**New hook `useDashboardStats`:**
+```typescript
+export const useDashboardStats = () => {
+  return useQuery({
+    queryKey: ['dashboardStats'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_dashboard_stats');
+      if (error) throw error;
+      return data?.[0] ?? { total_products: 0, total_stock: 0, low_stock_count: 0 };
+    },
+    staleTime: 1000 * 60 * 2,
+  });
+};
+```
+
+**Dashboard.tsx change:**
+```typescript
+// Accept server stats as props
+interface DashboardProps {
+  products: Product[];
+  movements: StockMovement[];
+  onViewProduct: (id: string) => void;
+  serverStats?: { total_products: number; total_stock: number; low_stock_count: number };
+}
+
+// Use server stats when available
+const totalProducts = serverStats?.total_products ?? products.length;
+const totalStock = serverStats?.total_stock ?? products.reduce((sum, p) => sum + p.mevcutStok, 0);
+const lowStockCount = serverStats?.low_stock_count ?? products.filter(p => p.mevcutStok < p.minStok).length;
+```
