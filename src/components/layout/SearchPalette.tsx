@@ -105,9 +105,9 @@ export function SearchPalette({ anchorRef, onShelfSelect }: SearchPaletteProps) 
       {hasQuery && allProductResults.length > 0 && (
         <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border bg-muted/20">
           {([
-            { key: 'all' as const, label: 'الكل', count: allProductResults.length },
-            { key: 'in_stock' as const, label: 'متوفر', count: allProductResults.filter(r => r.type === 'product' && r.stock > 0).length },
-            { key: 'out_of_stock' as const, label: 'غير متوفر', count: allProductResults.filter(r => r.type === 'product' && r.stock <= 0).length },
+            { key: 'all' as const, label: 'Tümü', count: allProductResults.length },
+            { key: 'in_stock' as const, label: 'Stokta', count: allProductResults.filter(r => r.type === 'product' && r.stock > 0).length },
+            { key: 'out_of_stock' as const, label: 'Stok Yok', count: allProductResults.filter(r => r.type === 'product' && r.stock <= 0).length },
           ]).map(f => (
             <button
               key={f.key}

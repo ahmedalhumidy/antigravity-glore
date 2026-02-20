@@ -79,6 +79,10 @@ export function ProductList({
   }, [baseProducts, selectedCategory]);
 
   const sortedProducts = useMemo(() => {
+    // When searching, preserve DB order (stock-prioritized) unless user explicitly sorts
+    if (searchResults !== null && sortField === 'urunAdi' && sortOrder === 'asc') {
+      return filteredProducts;
+    }
     return [...filteredProducts].sort((a, b) => {
       let comparison = 0;
       if (sortField === 'mevcutStok') {
@@ -88,7 +92,7 @@ export function ProductList({
       }
       return sortOrder === 'asc' ? comparison : -comparison;
     });
-  }, [filteredProducts, sortField, sortOrder]);
+  }, [filteredProducts, sortField, sortOrder, searchResults]);
 
   // When searching, show all results; otherwise show all loaded products
   const visibleProducts = sortedProducts;
