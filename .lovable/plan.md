@@ -1,98 +1,73 @@
 
-## Fix: Shelf Picker Scroll on Mobile — Final Root Cause
 
-### What the screenshot shows
-The shelf list dropdown is **open and visible**, but the user **cannot scroll within the list** to see more shelf options. Items 1, 10, 100 (checked), 101 (highlighted), 102, 103 are visible — but scrolling within that list is broken on mobile.
+## Fix: Search Results Dropdown Not Scrollable on Mobile
 
-### True Root Cause
+### Root Cause
 
-The `ShelfSelector` uses a **Radix Popover** which renders its content inside a **Portal** (attached to `<body>`). When this Popover is placed inside a **Dialog** (also a Portal):
+In `src/components/layout/SearchPalette.tsx`, the `makeHandlers` function (lines 37-42) applies `e.preventDefault()` on **all** pointer/touch events for every result button:
 
-1. The Dialog has `overflow-y-auto` with `touchAction: pan-y` — it claims all vertical touch events for itself.
-2. The Popover content appears visually above the dialog but **touch events are still captured by the dialog's scroll handler** first.
-3. The result: dragging up/down inside the shelf list scrolls the **dialog** behind it instead of scrolling the **shelf list itself**.
-
-Setting `modal={false}` on the Popover (done last time) prevents the body scroll lock conflict but does **not** fix the touch event interception by the parent dialog.
-
-### Why Previous Fixes Didn't Work
-- `modal={false}` → Fixed body scroll lock, but not touch event routing
-- `WebkitOverflowScrolling: touch` on `CommandList` → Helps on standalone elements, but when the touch is intercepted by a parent, it never reaches `CommandList`
-- `overscroll-contain` → Same — only works if the element gets the touch events
-
-### The Correct Fix: Inline Dropdown (No Portal)
-
-The only reliable solution for mobile is to **render the shelf list inline** — as an expanding section directly in the DOM, not via a portal. This way:
-- No portal z-index stacking
-- No touch event routing conflicts
-- The dialog scrolls to reveal the expanded list naturally
-- Works exactly like a native `<select>` expand behavior
-
-### Implementation
-
-Replace the `Popover + Command` approach in `ShelfSelector.tsx` with an **inline collapsible list**:
-
-```
-[Button: "100 — selected shelf"]   ← tap to toggle
-[Search input: "Raf ara..."]        ← visible when open
-[Scrollable list of shelves]        ← max-h-48, overflow-y-auto, touch-action: pan-y
-  ✓ 100
-    101
-    102
-[+ Yeni Raf Ekle]
+```typescript
+const makeHandlers = useCallback((action: () => void) => ({
+  onPointerDownCapture: (e) => { e.preventDefault(); ... },  // BLOCKS SCROLL
+  onPointerDown: (e) => { e.preventDefault(); ... },          // BLOCKS SCROLL
+  onClick: (e) => { e.preventDefault(); ... },
+  onTouchEnd: (e) => { e.preventDefault(); ... },
+}), []);
 ```
 
-This entire structure is in the normal DOM flow inside the form/dialog. No portals involved.
+When the user touches a result item and drags to scroll, `onPointerDownCapture` fires first with `preventDefault()`, which tells the browser: "don't do your default behavior (scrolling)." The scroll gesture is killed before it begins.
 
-#### Key styling for the inline list:
-```tsx
-<div 
-  className="max-h-48 overflow-y-auto overscroll-contain border rounded-md bg-popover"
-  style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
->
-  {/* shelf items */}
-</div>
+These aggressive handlers were originally added to prevent the search input from losing focus (blur) when tapping results — a valid concern. But they went too far by also blocking pointer-down, which is the gesture that initiates scrolling.
+
+### Solution
+
+Split the event handling: allow pointer-down to pass through (enabling scroll), but still prevent blur on the final selection events (click/touchend).
+
+**Change `makeHandlers` to:**
+```typescript
+const makeHandlers = useCallback((action: () => void) => ({
+  onMouseDown: (e: React.MouseEvent) => { e.preventDefault(); },
+  onClick: (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); action(); },
+  onTouchEnd: (e: React.TouchEvent) => { e.preventDefault(); e.stopPropagation(); action(); },
+}), []);
 ```
 
-`touch-action: pan-y` on the list itself tells the browser: "this element handles vertical pan gestures" — so iOS Safari passes the touch events to this element instead of bubbling them to the dialog.
+- `onMouseDown` with `preventDefault` keeps the desktop blur-prevention (input stays focused).
+- `onClick` fires the action on desktop.
+- `onTouchEnd` fires the action on mobile (after the tap completes, not during a scroll gesture).
+- Removing `onPointerDownCapture` and `onPointerDown` with `preventDefault` allows the browser to handle scroll gestures naturally.
+
+Also add `touchAction: 'pan-y'` to the scrollable container to explicitly tell the browser this area handles vertical scrolling.
 
 ### Files to Change
 
 | File | Change |
 |------|--------|
-| `src/components/shelves/ShelfSelector.tsx` | Replace Popover+Command with inline collapsible list |
+| `src/components/layout/SearchPalette.tsx` | Fix `makeHandlers` to not block scroll gestures; add `touchAction: 'pan-y'` to scroll container |
 
-That's the only file that needs changing. The other files (dialog.tsx, ScanSessionShelfPicker.tsx) are fine as-is.
+### Technical Details
 
-### What the new ShelfSelector looks like
+**SearchPalette.tsx line 37-42 — Replace makeHandlers:**
 
-**Closed state:**
+Remove `onPointerDownCapture` and `onPointerDown` (which block scroll). Keep `onMouseDown` for desktop blur prevention, `onClick` for desktop selection, and `onTouchEnd` for mobile selection.
+
+**SearchPalette.tsx line 60-61 — Enhance scroll container:**
+
+Add `touchAction: 'pan-y'` to the scrollable results div to explicitly declare this element handles vertical panning:
+```typescript
+style={{ maxHeight: '60vh', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
 ```
-[ 📍 100  ▼ ]
-```
-
-**Open state (inline, no portal):**
-```
-[ 📍 100  ▲ ]
-┌─────────────────────────┐
-│ 🔍 Raf ara...           │
-├─────────────────────────┤
-│   📍 1                  │  ← scrollable on mobile
-│   📍 10                 │
-│ ✓ 📍 100                │
-│   📍 101                │
-│   📍 102                │
-│   ...                   │
-├─────────────────────────┤
-│ + Yeni Raf Ekle         │
-└─────────────────────────┘
-```
-
-The list has `max-h-48` (192px) with `overflow-y-auto` and `touch-action: pan-y`, making it independently scrollable on touch devices regardless of what parent container it lives in.
 
 ### Why This Works
 
-- No Portal → no touch event routing conflict  
-- `touch-action: pan-y` on the list → browser gives vertical touches directly to the list element  
-- Inline DOM → dialog's `overflow-y-auto` will scroll the dialog to show the expanded list if needed (correct behavior)  
-- Search input still filters items in real-time via local `useState`  
-- "Yeni Raf Ekle" still opens the add-shelf Dialog as before
+- `onTouchEnd` only fires after a **tap** (touch down + touch up in same spot). If the user drags to scroll, `touchEnd` fires at a different position and the browser handles it as a scroll — the action callback won't execute during a scroll gesture.
+- `onMouseDown` with `preventDefault` still prevents input blur on desktop (the original purpose of the hardened handlers).
+- The scroll container with `touchAction: 'pan-y'` tells the browser to prioritize vertical scrolling within this element.
+
+### Expected Result
+
+- Search results list scrolls smoothly on mobile
+- Tapping a result still opens the product detail drawer
+- Desktop keyboard navigation and mouse clicks still work
+- Input field stays focused when interacting with results (no blur issues)
+
