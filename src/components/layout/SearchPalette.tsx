@@ -12,6 +12,7 @@ interface SearchPaletteProps {
 export function SearchPalette({ anchorRef, onShelfSelect }: SearchPaletteProps) {
   const search = useSearchController();
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const [stockFilter, setStockFilter] = useState<'all' | 'in_stock' | 'out_of_stock'>('all');
 
   const isCommandMode = search.query.startsWith('>');
   const hasQuery = search.query.trim().length >= 2;
@@ -72,7 +73,12 @@ export function SearchPalette({ anchorRef, onShelfSelect }: SearchPaletteProps) 
 
   if (!showPalette) return null;
 
-  const productResults = search.results.filter(r => r.type === 'product');
+  const allProductResults = search.results.filter(r => r.type === 'product');
+  const productResults = allProductResults.filter(r => {
+    if (stockFilter === 'all') return true;
+    if (stockFilter === 'in_stock') return r.type === 'product' && r.stock > 0;
+    return r.type === 'product' && r.stock <= 0;
+  });
   const shelfResults = search.results.filter(r => r.type === 'shelf');
 
   const resultsList = (
@@ -91,6 +97,31 @@ export function SearchPalette({ anchorRef, onShelfSelect }: SearchPaletteProps) 
                 <div className="h-2.5 bg-muted rounded w-1/2" />
               </div>
             </div>
+          ))}
+        </div>
+      )}
+
+      {/* Stock filter chips */}
+      {hasQuery && allProductResults.length > 0 && (
+        <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border bg-muted/20">
+          {([
+            { key: 'all' as const, label: 'الكل', count: allProductResults.length },
+            { key: 'in_stock' as const, label: 'متوفر', count: allProductResults.filter(r => r.type === 'product' && r.stock > 0).length },
+            { key: 'out_of_stock' as const, label: 'غير متوفر', count: allProductResults.filter(r => r.type === 'product' && r.stock <= 0).length },
+          ]).map(f => (
+            <button
+              key={f.key}
+              type="button"
+              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
+                stockFilter === f.key
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+              }`}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => setStockFilter(f.key)}
+            >
+              {f.label} ({f.count})
+            </button>
           ))}
         </div>
       )}
@@ -138,8 +169,11 @@ export function SearchPalette({ anchorRef, onShelfSelect }: SearchPaletteProps) 
               style={{ touchAction: 'manipulation' }}
               {...makeHandlers(() => handleProductSelect(r.id))}
             >
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <div className="relative w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <span className="text-xs font-bold text-primary">{r.name.charAt(0)}</span>
+                <span className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-popover ${
+                  r.type === 'product' && r.stock > 0 ? 'bg-emerald-500' : 'bg-red-500'
+                }`} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{r.name}</p>
