@@ -33,11 +33,32 @@ export function SearchPalette({ anchorRef, onShelfSelect }: SearchPaletteProps) 
     }
   }, [showPalette, search.query, anchorRef]);
 
-  // Hardened click handler factory
+  // Track touch start to distinguish tap vs scroll
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
   const makeHandlers = useCallback((action: () => void) => ({
     onMouseDown: (e: React.MouseEvent) => { e.preventDefault(); },
     onClick: (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); action(); },
-    onTouchEnd: (e: React.TouchEvent) => { e.preventDefault(); e.stopPropagation(); action(); },
+    onTouchStart: (e: React.TouchEvent) => {
+      const t = e.touches[0];
+      touchStartRef.current = { x: t.clientX, y: t.clientY };
+    },
+    onTouchEnd: (e: React.TouchEvent) => {
+      const start = touchStartRef.current;
+      if (start) {
+        const t = e.changedTouches[0];
+        const dx = Math.abs(t.clientX - start.x);
+        const dy = Math.abs(t.clientY - start.y);
+        if (dx > 10 || dy > 10) {
+          touchStartRef.current = null;
+          return;
+        }
+      }
+      touchStartRef.current = null;
+      e.preventDefault();
+      e.stopPropagation();
+      action();
+    },
   }), []);
 
   const handleProductSelect = useCallback((id: string) => {
