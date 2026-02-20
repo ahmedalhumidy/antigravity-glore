@@ -1,64 +1,63 @@
 
 
-## Fix: Scroll in Search Results Triggers Accidental Product Open
+## Fix: Name Search Not Showing All Relevant Products
 
 ### Problem
-When scrolling through search results on mobile, lifting your finger at the end of the scroll fires `onTouchEnd`, which calls the action and opens a product. The user only wanted to scroll, not select.
+When searching by product name, some products don't appear in results. Searching by code works fine because codes are unique. The root cause is in the `search_products` database function:
 
-### Root Cause
-The `onTouchEnd` handler in `makeHandlers` unconditionally calls `action()` — it doesn't distinguish between a tap (finger down + up in same spot) and a scroll (finger down + drag + up).
+- It returns max 50 results, sorted alphabetically (ORDER BY urun_adi)
+- Common name terms like "kase" (bowl) match 100+ products
+- Only the first 50 alphabetically are returned
+- The user's specific product may fall outside this window
 
 ### Solution
-Track the touch start position via `onTouchStart`, then in `onTouchEnd` compare the distance moved. If the finger moved more than a small threshold (e.g. 10px), treat it as a scroll and do nothing. If it barely moved, treat it as a tap and fire the action.
+Improve the `search_products` function with **relevance-based ranking** instead of simple alphabetical sort:
 
-### Implementation
+1. **Exact code match** first (highest priority)
+2. **Prefix match** on name or code (starts with the query)
+3. **Contains match** (substring) last
 
-**File: `src/components/layout/SearchPalette.tsx`**
+This ensures that even with 50 results max, the most relevant ones appear first. Also increase the limit slightly to 80.
 
-1. Add a `useRef` to track touch start coordinates.
-2. Replace the simple `makeHandlers` with a version that uses `onTouchStart` to record the position and `onTouchEnd` to check distance before firing.
+### Database Migration
 
-```typescript
-const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+Replace the `search_products` function with a smarter version:
 
-const makeHandlers = useCallback((action: () => void) => ({
-  onMouseDown: (e: React.MouseEvent) => { e.preventDefault(); },
-  onClick: (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); action(); },
-  onTouchStart: (e: React.TouchEvent) => {
-    const t = e.touches[0];
-    touchStartRef.current = { x: t.clientX, y: t.clientY };
-  },
-  onTouchEnd: (e: React.TouchEvent) => {
-    const start = touchStartRef.current;
-    if (start) {
-      const t = e.changedTouches[0];
-      const dx = Math.abs(t.clientX - start.x);
-      const dy = Math.abs(t.clientY - start.y);
-      // If finger moved more than 10px, it was a scroll — ignore
-      if (dx > 10 || dy > 10) {
-        touchStartRef.current = null;
-        return;
-      }
-    }
-    touchStartRef.current = null;
-    e.preventDefault();
-    e.stopPropagation();
-    action();
-  },
-}), []);
+```sql
+CREATE OR REPLACE FUNCTION public.search_products(query text)
+RETURNS SETOF public.products
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = 'public'
+AS $$
+  SELECT *
+  FROM public.products
+  WHERE is_deleted = false
+    AND search_text ILIKE '%' || lower(public.immutable_unaccent(query)) || '%'
+  ORDER BY
+    CASE
+      WHEN lower(urun_kodu) = lower(query) THEN 0
+      WHEN lower(barkod) = lower(query) THEN 0
+      WHEN lower(public.immutable_unaccent(urun_adi)) ILIKE lower(public.immutable_unaccent(query)) || '%' THEN 1
+      WHEN lower(urun_kodu) ILIKE lower(query) || '%' THEN 1
+      ELSE 2
+    END,
+    urun_adi
+  LIMIT 80;
+$$;
 ```
 
-This way:
-- **Tap** (finger barely moves): action fires, product opens
-- **Scroll** (finger drags 10px+): action is skipped, scroll completes normally
+**Ranking logic:**
+- Priority 0: Exact match on code or barcode
+- Priority 1: Name or code starts with query
+- Priority 2: Contains query (substring match)
 
 ### Files to Change
 
 | File | Change |
 |------|--------|
-| `src/components/layout/SearchPalette.tsx` | Add `touchStartRef`, update `makeHandlers` to detect scroll vs tap |
+| Database migration | Update `search_products` function with relevance ranking and increased limit |
 
-### Expected Result
-- Scrolling through search results works without accidentally opening a product
-- Tapping a result still opens the product as expected
-- Desktop click behavior unchanged
+No frontend code changes needed -- the existing UI will automatically display the better-sorted results.
+
