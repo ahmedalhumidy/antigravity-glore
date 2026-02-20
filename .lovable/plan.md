@@ -1,38 +1,41 @@
 
 
-## Fix: Name Search Not Showing All Relevant Products
+## ترتيب نتائج البحث حسب المخزون + فلتر البضاعة
 
-### Problem
-When searching by product name, some products don't appear in results. Searching by code works fine because codes are unique. The root cause is in the `search_products` database function:
+### المشكلة
+حالياً نتائج البحث مرتبة حسب تطابق الاسم/الكود فقط، بدون مراعاة إذا المنتج فيه ستوك أو لا. المنتجات اللي ما فيها ستوك بتطلع بنفس المرتبة مع اللي فيها.
 
-- It returns max 50 results, sorted alphabetically (ORDER BY urun_adi)
-- Common name terms like "kase" (bowl) match 100+ products
-- Only the first 50 alphabetically are returned
-- The user's specific product may fall outside this window
+### الحل
 
-### Solution
-Improve the `search_products` function with **relevance-based ranking** instead of simple alphabetical sort:
+#### 1. تحديث دالة البحث في قاعدة البيانات
+تعديل `search_products` لإضافة ترتيب ثانوي حسب المخزون:
+- المنتجات اللي فيها ستوك (mevcut_stok > 0) تطلع أولاً
+- المنتجات اللي ما فيها ستوك تطلع بعدها
 
-1. **Exact code match** first (highest priority)
-2. **Prefix match** on name or code (starts with the query)
-3. **Contains match** (substring) last
+الترتيب النهائي:
+1. تطابق كامل على الكود/الباركود
+2. بداية الاسم بالكلمة
+3. يحتوي الكلمة
+4. **ضمن كل مجموعة**: الموجود بالستوك أولاً
+5. ثم أبجدياً
 
-This ensures that even with 50 results max, the most relevant ones appear first. Also increase the limit slightly to 80.
+#### 2. إضافة فلتر في نتائج البحث (SearchPalette)
+إضافة شريط فلتر بسيط فوق النتائج بثلاث خيارات:
+- **الكل** (افتراضي)
+- **متوفر** (فقط المنتجات اللي فيها ستوك)
+- **غير متوفر** (فقط المنتجات اللي ما فيها ستوك)
 
-### Database Migration
+مع إظهار نقطة ملونة (خضراء/حمراء) بجانب كل منتج في النتائج لتوضيح حالة المخزون.
 
-Replace the `search_products` function with a smarter version:
+### التفاصيل التقنية
 
+**Migration SQL:**
 ```sql
 CREATE OR REPLACE FUNCTION public.search_products(query text)
 RETURNS SETOF public.products
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = 'public'
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = 'public'
 AS $$
-  SELECT *
-  FROM public.products
+  SELECT * FROM public.products
   WHERE is_deleted = false
     AND search_text ILIKE '%' || lower(public.immutable_unaccent(query)) || '%'
   ORDER BY
@@ -43,21 +46,25 @@ AS $$
       WHEN lower(urun_kodu) ILIKE lower(query) || '%' THEN 1
       ELSE 2
     END,
+    CASE WHEN mevcut_stok > 0 THEN 0 ELSE 1 END,
     urun_adi
   LIMIT 80;
 $$;
 ```
 
-**Ranking logic:**
-- Priority 0: Exact match on code or barcode
-- Priority 1: Name or code starts with query
-- Priority 2: Contains query (substring match)
+**SearchPalette.tsx:**
+- إضافة state للفلتر: `stockFilter: 'all' | 'in_stock' | 'out_of_stock'`
+- شريط فلتر بأزرار صغيرة (chips) فوق النتائج
+- تصفية `productResults` حسب الفلتر المختار
+- إضافة نقطة ملونة بجانب كل منتج (خضراء = متوفر، حمراء = غير متوفر)
 
-### Files to Change
+**globalSearch.ts:**
+- تمرير قيمة `stock` الموجودة أصلاً في `SearchResultProduct` (لا تغيير مطلوب)
 
-| File | Change |
-|------|--------|
-| Database migration | Update `search_products` function with relevance ranking and increased limit |
+### الملفات المتأثرة
 
-No frontend code changes needed -- the existing UI will automatically display the better-sorted results.
+| الملف | التغيير |
+|-------|---------|
+| Database migration | تحديث `search_products` بترتيب المخزون |
+| `src/components/layout/SearchPalette.tsx` | إضافة فلتر + نقطة حالة المخزون |
 
