@@ -35,8 +35,7 @@ export function SearchPalette({ anchorRef, onShelfSelect }: SearchPaletteProps) 
 
   // Hardened click handler factory
   const makeHandlers = useCallback((action: () => void) => ({
-    onPointerDownCapture: (e: React.PointerEvent) => { e.preventDefault(); e.stopPropagation(); action(); },
-    onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); e.stopPropagation(); action(); },
+    onMouseDown: (e: React.MouseEvent) => { e.preventDefault(); },
     onClick: (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); action(); },
     onTouchEnd: (e: React.TouchEvent) => { e.preventDefault(); e.stopPropagation(); action(); },
   }), []);
@@ -58,7 +57,7 @@ export function SearchPalette({ anchorRef, onShelfSelect }: SearchPaletteProps) 
   const resultsList = (
     <div
       className="overflow-y-auto overscroll-contain"
-      style={{ maxHeight: '60vh', WebkitOverflowScrolling: 'touch' }}
+      style={{ maxHeight: '60vh', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
     >
       {/* Loading skeleton */}
       {search.loading && search.results.length === 0 && (
