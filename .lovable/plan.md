@@ -1,73 +1,64 @@
 
 
-## Fix: Search Results Dropdown Not Scrollable on Mobile
+## Fix: Scroll in Search Results Triggers Accidental Product Open
+
+### Problem
+When scrolling through search results on mobile, lifting your finger at the end of the scroll fires `onTouchEnd`, which calls the action and opens a product. The user only wanted to scroll, not select.
 
 ### Root Cause
-
-In `src/components/layout/SearchPalette.tsx`, the `makeHandlers` function (lines 37-42) applies `e.preventDefault()` on **all** pointer/touch events for every result button:
-
-```typescript
-const makeHandlers = useCallback((action: () => void) => ({
-  onPointerDownCapture: (e) => { e.preventDefault(); ... },  // BLOCKS SCROLL
-  onPointerDown: (e) => { e.preventDefault(); ... },          // BLOCKS SCROLL
-  onClick: (e) => { e.preventDefault(); ... },
-  onTouchEnd: (e) => { e.preventDefault(); ... },
-}), []);
-```
-
-When the user touches a result item and drags to scroll, `onPointerDownCapture` fires first with `preventDefault()`, which tells the browser: "don't do your default behavior (scrolling)." The scroll gesture is killed before it begins.
-
-These aggressive handlers were originally added to prevent the search input from losing focus (blur) when tapping results — a valid concern. But they went too far by also blocking pointer-down, which is the gesture that initiates scrolling.
+The `onTouchEnd` handler in `makeHandlers` unconditionally calls `action()` — it doesn't distinguish between a tap (finger down + up in same spot) and a scroll (finger down + drag + up).
 
 ### Solution
+Track the touch start position via `onTouchStart`, then in `onTouchEnd` compare the distance moved. If the finger moved more than a small threshold (e.g. 10px), treat it as a scroll and do nothing. If it barely moved, treat it as a tap and fire the action.
 
-Split the event handling: allow pointer-down to pass through (enabling scroll), but still prevent blur on the final selection events (click/touchend).
+### Implementation
 
-**Change `makeHandlers` to:**
+**File: `src/components/layout/SearchPalette.tsx`**
+
+1. Add a `useRef` to track touch start coordinates.
+2. Replace the simple `makeHandlers` with a version that uses `onTouchStart` to record the position and `onTouchEnd` to check distance before firing.
+
 ```typescript
+const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
 const makeHandlers = useCallback((action: () => void) => ({
   onMouseDown: (e: React.MouseEvent) => { e.preventDefault(); },
   onClick: (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); action(); },
-  onTouchEnd: (e: React.TouchEvent) => { e.preventDefault(); e.stopPropagation(); action(); },
+  onTouchStart: (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStartRef.current = { x: t.clientX, y: t.clientY };
+  },
+  onTouchEnd: (e: React.TouchEvent) => {
+    const start = touchStartRef.current;
+    if (start) {
+      const t = e.changedTouches[0];
+      const dx = Math.abs(t.clientX - start.x);
+      const dy = Math.abs(t.clientY - start.y);
+      // If finger moved more than 10px, it was a scroll — ignore
+      if (dx > 10 || dy > 10) {
+        touchStartRef.current = null;
+        return;
+      }
+    }
+    touchStartRef.current = null;
+    e.preventDefault();
+    e.stopPropagation();
+    action();
+  },
 }), []);
 ```
 
-- `onMouseDown` with `preventDefault` keeps the desktop blur-prevention (input stays focused).
-- `onClick` fires the action on desktop.
-- `onTouchEnd` fires the action on mobile (after the tap completes, not during a scroll gesture).
-- Removing `onPointerDownCapture` and `onPointerDown` with `preventDefault` allows the browser to handle scroll gestures naturally.
-
-Also add `touchAction: 'pan-y'` to the scrollable container to explicitly tell the browser this area handles vertical scrolling.
+This way:
+- **Tap** (finger barely moves): action fires, product opens
+- **Scroll** (finger drags 10px+): action is skipped, scroll completes normally
 
 ### Files to Change
 
 | File | Change |
 |------|--------|
-| `src/components/layout/SearchPalette.tsx` | Fix `makeHandlers` to not block scroll gestures; add `touchAction: 'pan-y'` to scroll container |
-
-### Technical Details
-
-**SearchPalette.tsx line 37-42 — Replace makeHandlers:**
-
-Remove `onPointerDownCapture` and `onPointerDown` (which block scroll). Keep `onMouseDown` for desktop blur prevention, `onClick` for desktop selection, and `onTouchEnd` for mobile selection.
-
-**SearchPalette.tsx line 60-61 — Enhance scroll container:**
-
-Add `touchAction: 'pan-y'` to the scrollable results div to explicitly declare this element handles vertical panning:
-```typescript
-style={{ maxHeight: '60vh', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
-```
-
-### Why This Works
-
-- `onTouchEnd` only fires after a **tap** (touch down + touch up in same spot). If the user drags to scroll, `touchEnd` fires at a different position and the browser handles it as a scroll — the action callback won't execute during a scroll gesture.
-- `onMouseDown` with `preventDefault` still prevents input blur on desktop (the original purpose of the hardened handlers).
-- The scroll container with `touchAction: 'pan-y'` tells the browser to prioritize vertical scrolling within this element.
+| `src/components/layout/SearchPalette.tsx` | Add `touchStartRef`, update `makeHandlers` to detect scroll vs tap |
 
 ### Expected Result
-
-- Search results list scrolls smoothly on mobile
-- Tapping a result still opens the product detail drawer
-- Desktop keyboard navigation and mouse clicks still work
-- Input field stays focused when interacting with results (no blur issues)
-
+- Scrolling through search results works without accidentally opening a product
+- Tapping a result still opens the product as expected
+- Desktop click behavior unchanged
