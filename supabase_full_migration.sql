@@ -1,9 +1,16 @@
 -- ============================================================
--- GLORE Marketplace - Complete Database Migration
--- Generated: 2026-02-07
+-- DELUXXS / GLORE - Complete Database Migration
+-- Updated: 2026-02-22
 -- This script contains EVERYTHING needed to replicate the
 -- database on a fresh Supabase project.
 -- ============================================================
+
+-- ============================================================
+-- STEP 0: EXTENSIONS
+-- ============================================================
+
+CREATE EXTENSION IF NOT EXISTS unaccent SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public;
 
 -- ============================================================
 -- STEP 1: ENUMS
@@ -193,6 +200,90 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.handle_production_move()
+  RETURNS trigger LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path TO 'public'
+AS $$
+BEGIN
+  UPDATE public.production_units
+  SET current_stage_id = NEW.to_stage_id,
+      last_move_at = now()
+  WHERE id = NEW.unit_id;
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.immutable_unaccent(text)
+  RETURNS text LANGUAGE sql
+  IMMUTABLE PARALLEL SAFE STRICT
+  SET search_path TO 'public'
+AS $$
+  SELECT public.unaccent($1);
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_dashboard_stats()
+  RETURNS TABLE(total_products bigint, total_stock bigint, low_stock_count bigint)
+  LANGUAGE sql STABLE SECURITY DEFINER
+  SET search_path TO 'public'
+AS $$
+  SELECT
+    COUNT(*) as total_products,
+    COALESCE(SUM(mevcut_stok), 0) as total_stock,
+    COUNT(*) FILTER (WHERE mevcut_stok < min_stok) as low_stock_count
+  FROM products
+  WHERE is_deleted = false;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_shelf_product_counts()
+  RETURNS TABLE(raf_konum text, product_count bigint)
+  LANGUAGE sql STABLE SECURITY DEFINER
+  SET search_path TO 'public'
+AS $$
+  SELECT raf_konum, COUNT(*) as product_count
+  FROM products
+  WHERE is_deleted = false
+  GROUP BY raf_konum;
+$$;
+
+CREATE OR REPLACE FUNCTION public.rebuild_search_text_batch(codes text[])
+  RETURNS void LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path TO 'public'
+AS $$
+BEGIN
+  UPDATE public.products
+  SET search_text = lower(public.immutable_unaccent(
+    coalesce(urun_adi, '') || ' ' || coalesce(urun_kodu, '') || ' ' || coalesce(barkod, '')
+  ))
+  WHERE urun_kodu = ANY(codes)
+    AND is_deleted = false;
+END;
+$$;
+
+-- search_products with stock-priority ordering
+CREATE OR REPLACE FUNCTION public.search_products(query text)
+  RETURNS SETOF public.products
+  LANGUAGE sql STABLE SECURITY DEFINER
+  SET search_path TO 'public'
+AS $$
+  SELECT *
+  FROM public.products
+  WHERE is_deleted = false
+    AND search_text ILIKE '%' || lower(public.immutable_unaccent(query)) || '%'
+  ORDER BY
+    CASE
+      WHEN lower(urun_kodu) = lower(query) THEN 0
+      WHEN lower(barkod) = lower(query) THEN 0
+      WHEN lower(public.immutable_unaccent(urun_adi)) ILIKE lower(public.immutable_unaccent(query)) || '%' THEN 1
+      WHEN lower(urun_kodu) ILIKE lower(query) || '%' THEN 1
+      ELSE 2
+    END,
+    CASE WHEN mevcut_stok > 0 THEN 0 ELSE 1 END,
+    urun_adi
+  LIMIT 80;
+$$;
+
 -- ============================================================
 -- STEP 3: TABLES
 -- ============================================================
@@ -264,6 +355,8 @@ CREATE TABLE IF NOT EXISTS public.shelves (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   name text NOT NULL,
   description text,
+  zone text,
+  capacity integer,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -296,6 +389,8 @@ CREATE TABLE IF NOT EXISTS public.products (
   product_description text,
   category text,
   weight numeric DEFAULT 0,
+  -- Search field
+  search_text text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -491,7 +586,7 @@ CREATE TABLE IF NOT EXISTS public.workflow_steps (
   is_final boolean DEFAULT false,
   requires_approval boolean DEFAULT false,
   approval_role text,
-  color text,
+  color text DEFAULT '#6366f1',
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -690,13 +785,118 @@ CREATE TABLE IF NOT EXISTS public.promotion_rules (
   updated_at timestamptz DEFAULT now()
 );
 
+-- 3.38 Scan Logs
+CREATE TABLE IF NOT EXISTS public.scan_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  barcode text NOT NULL,
+  product_id uuid,
+  user_id uuid,
+  result text NOT NULL DEFAULT 'found',
+  scanned_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 3.39 Store Products (Storefront layer)
+CREATE TABLE IF NOT EXISTS public.store_products (
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  product_id uuid NOT NULL,
+  slug text NOT NULL,
+  visible boolean DEFAULT false,
+  price numeric,
+  compare_price numeric,
+  title_override text,
+  description_override text,
+  category text,
+  badge text,
+  currency text DEFAULT 'TRY',
+  allow_quote boolean DEFAULT true,
+  allow_cart boolean DEFAULT true,
+  show_stock boolean DEFAULT false,
+  min_qty integer DEFAULT 1,
+  max_qty integer,
+  order_step integer DEFAULT 1,
+  sort_order integer DEFAULT 0,
+  created_at timestamptz DEFAULT now()
+);
+
+-- 3.40 Gallery Products
+CREATE TABLE IF NOT EXISTS public.gallery_products (
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  title text NOT NULL,
+  slug text,
+  description text,
+  category text,
+  images jsonb DEFAULT '[]'::jsonb,
+  tags text[],
+  price_hint numeric,
+  visible boolean DEFAULT true,
+  sort_order integer DEFAULT 0,
+  created_at timestamptz DEFAULT now()
+);
+
+-- 3.41 Quote Requests
+CREATE TABLE IF NOT EXISTS public.quote_requests (
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  name text NOT NULL,
+  phone text,
+  email text,
+  company text,
+  notes text,
+  customer_id uuid,
+  status text DEFAULT 'new',
+  created_at timestamptz DEFAULT now()
+);
+
+-- 3.42 Quote Request Items
+CREATE TABLE IF NOT EXISTS public.quote_request_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  quote_id uuid NOT NULL,
+  product_id uuid,
+  gallery_id uuid,
+  quantity integer DEFAULT 1,
+  unit text DEFAULT 'adet',
+  note text
+);
+
+-- 3.43 Production Stages
+CREATE TABLE IF NOT EXISTS public.production_stages (
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  code text NOT NULL,
+  name text NOT NULL,
+  stage_type text NOT NULL DEFAULT 'process',
+  order_index integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 3.44 Production Units
+CREATE TABLE IF NOT EXISTS public.production_units (
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  barcode text NOT NULL,
+  product_id uuid,
+  current_stage_id uuid NOT NULL,
+  status text NOT NULL DEFAULT 'waiting',
+  last_move_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 3.45 Production Moves
+CREATE TABLE IF NOT EXISTS public.production_moves (
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  unit_id uuid NOT NULL,
+  from_stage_id uuid NOT NULL,
+  to_stage_id uuid NOT NULL,
+  operator text NOT NULL,
+  quantity integer NOT NULL DEFAULT 1,
+  note text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 -- ============================================================
 -- STEP 4: FOREIGN KEYS
 -- ============================================================
 
 -- Profiles
 ALTER TABLE public.profiles
-  ADD CONSTRAINT profiles_deleted_by_fkey
+  ADD CONSTRAINT profiles_user_id_fkey
   FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 -- User Roles
@@ -832,6 +1032,32 @@ ALTER TABLE public.review_votes
 ALTER TABLE public.promotion_rules
   ADD CONSTRAINT promotion_rules_store_id_fkey FOREIGN KEY (store_id) REFERENCES public.stores(id);
 
+-- Scan Logs
+ALTER TABLE public.scan_logs
+  ADD CONSTRAINT scan_logs_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id);
+
+-- Store Products
+ALTER TABLE public.store_products
+  ADD CONSTRAINT store_products_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id);
+
+-- Quote Request Items
+ALTER TABLE public.quote_request_items
+  ADD CONSTRAINT quote_request_items_quote_id_fkey FOREIGN KEY (quote_id) REFERENCES public.quote_requests(id);
+
+-- Production Units
+ALTER TABLE public.production_units
+  ADD CONSTRAINT production_units_current_stage_id_fkey FOREIGN KEY (current_stage_id) REFERENCES public.production_stages(id);
+ALTER TABLE public.production_units
+  ADD CONSTRAINT production_units_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id);
+
+-- Production Moves
+ALTER TABLE public.production_moves
+  ADD CONSTRAINT production_moves_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.production_units(id);
+ALTER TABLE public.production_moves
+  ADD CONSTRAINT production_moves_from_stage_id_fkey FOREIGN KEY (from_stage_id) REFERENCES public.production_stages(id);
+ALTER TABLE public.production_moves
+  ADD CONSTRAINT production_moves_to_stage_id_fkey FOREIGN KEY (to_stage_id) REFERENCES public.production_stages(id);
+
 -- ============================================================
 -- STEP 5: ENABLE RLS ON ALL TABLES
 -- ============================================================
@@ -873,6 +1099,14 @@ ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.review_votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.promotion_rules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.scan_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.store_products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.gallery_products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quote_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quote_request_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.production_stages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.production_units ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.production_moves ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
 -- STEP 6: RLS POLICIES
@@ -1033,6 +1267,18 @@ CREATE POLICY "Anyone can view active workflows" ON public.workflow_definitions 
 CREATE POLICY "Admins can manage workflow definitions" ON public.workflow_definitions FOR ALL
   USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'manager'));
 
+-- ========== WORKFLOW STEPS ==========
+CREATE POLICY "Anyone can view workflow steps" ON public.workflow_steps FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Admins can manage workflow steps" ON public.workflow_steps FOR ALL
+  USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'manager'));
+
+-- ========== WORKFLOW TRANSITIONS ==========
+CREATE POLICY "Anyone can view workflow transitions" ON public.workflow_transitions FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Admins can manage workflow transitions" ON public.workflow_transitions FOR ALL
+  USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'manager'));
+
 -- ========== WORKFLOW INSTANCES ==========
 CREATE POLICY "Anyone can view workflow instances" ON public.workflow_instances FOR SELECT
   USING (auth.uid() IS NOT NULL);
@@ -1138,6 +1384,63 @@ CREATE POLICY "Merchants can manage their store promotions" ON public.promotion_
   USING (store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()))
   WITH CHECK (store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
 
+-- ========== SCAN LOGS ==========
+CREATE POLICY "Authenticated users can insert scan logs" ON public.scan_logs FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "Authenticated users can view scan logs" ON public.scan_logs FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+
+-- ========== STORE PRODUCTS ==========
+CREATE POLICY "Anyone can view visible store products" ON public.store_products FOR SELECT
+  USING (visible = true);
+CREATE POLICY "Admins can manage store products" ON public.store_products FOR ALL
+  USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'manager'))
+  WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'manager'));
+
+-- ========== GALLERY PRODUCTS ==========
+CREATE POLICY "Anyone can view visible gallery products" ON public.gallery_products FOR SELECT
+  USING (visible = true);
+CREATE POLICY "Admins can manage gallery products" ON public.gallery_products FOR ALL
+  USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'manager'))
+  WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'manager'));
+
+-- ========== QUOTE REQUESTS ==========
+CREATE POLICY "Anyone can create quote requests" ON public.quote_requests FOR INSERT
+  WITH CHECK (true);
+CREATE POLICY "Users can view their own quotes" ON public.quote_requests FOR SELECT
+  USING (customer_id = auth.uid());
+CREATE POLICY "Admins can manage all quotes" ON public.quote_requests FOR ALL
+  USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'manager'))
+  WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'manager'));
+
+-- ========== QUOTE REQUEST ITEMS ==========
+CREATE POLICY "Anyone can create quote items" ON public.quote_request_items FOR INSERT
+  WITH CHECK (true);
+CREATE POLICY "Users can view their own quote items" ON public.quote_request_items FOR SELECT
+  USING (EXISTS (SELECT 1 FROM quote_requests qr WHERE qr.id = quote_request_items.quote_id AND qr.customer_id = auth.uid()));
+CREATE POLICY "Admins can manage all quote items" ON public.quote_request_items FOR ALL
+  USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'manager'))
+  WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'manager'));
+
+-- ========== PRODUCTION STAGES ==========
+CREATE POLICY "Authenticated users can view production stages" ON public.production_stages FOR SELECT
+  USING (true);
+CREATE POLICY "Admins can manage production stages" ON public.production_stages FOR ALL
+  USING (has_role(auth.uid(), 'admin')) WITH CHECK (has_role(auth.uid(), 'admin'));
+
+-- ========== PRODUCTION UNITS ==========
+CREATE POLICY "Authenticated users can view production units" ON public.production_units FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Staff can manage production units" ON public.production_units FOR ALL
+  USING (has_permission(auth.uid(), 'stock_movements.create'))
+  WITH CHECK (has_permission(auth.uid(), 'stock_movements.create'));
+
+-- ========== PRODUCTION MOVES ==========
+CREATE POLICY "Authenticated users can view production moves" ON public.production_moves FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Staff can insert production moves" ON public.production_moves FOR INSERT
+  WITH CHECK (has_permission(auth.uid(), 'stock_movements.create'));
+
 -- ============================================================
 -- STEP 7: TRIGGERS
 -- ============================================================
@@ -1212,8 +1515,12 @@ CREATE TRIGGER set_order_number_trigger
   BEFORE INSERT ON public.orders
   FOR EACH ROW EXECUTE FUNCTION public.set_order_number();
 
+-- Production move trigger - auto-update unit stage
+CREATE TRIGGER handle_production_move_trigger
+  AFTER INSERT ON public.production_moves
+  FOR EACH ROW EXECUTE FUNCTION public.handle_production_move();
+
 -- Auth triggers (run these in Supabase Dashboard > SQL Editor)
--- These reference auth.users which needs special handling:
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
@@ -1227,6 +1534,9 @@ CREATE TRIGGER on_auth_user_login
 -- ============================================================
 
 INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO storage.buckets (id, name, public) VALUES ('product-images', 'product-images', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Storage policies for avatars
@@ -1245,6 +1555,23 @@ CREATE POLICY "Users can update their own avatar"
 CREATE POLICY "Users can delete their own avatar"
   ON storage.objects FOR DELETE
   USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+-- Storage policies for product images
+CREATE POLICY "Product images are publicly accessible"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'product-images');
+
+CREATE POLICY "Staff can upload product images"
+  ON storage.objects FOR INSERT
+  WITH CHECK (bucket_id = 'product-images' AND auth.uid() IS NOT NULL);
+
+CREATE POLICY "Staff can update product images"
+  ON storage.objects FOR UPDATE
+  USING (bucket_id = 'product-images' AND auth.uid() IS NOT NULL);
+
+CREATE POLICY "Staff can delete product images"
+  ON storage.objects FOR DELETE
+  USING (bucket_id = 'product-images' AND auth.uid() IS NOT NULL);
 
 -- ============================================================
 -- STEP 9: SEED DATA
@@ -1295,13 +1622,36 @@ INSERT INTO public.feature_flags (module_key, module_name, description, is_enabl
   ('dynamic_forms', 'Dinamik Formlar', 'Özelleştirilebilir ürün formları', true, '{}'),
   ('offline_enhanced', 'Gelişmiş Çevrimdışı', 'Gelişmiş çevrimdışı senkronizasyon', true, '{}'),
   ('rbac_enhanced', 'Gelişmiş Yetkilendirme', 'Detaylı rol ve izin yönetimi sistemi', true, '{}'),
-  ('scan_session', 'Tarama Oturumu (Scan Session)', 'Profesyonel toplu tarama oturumu: IN/OUT/Transfer/Sayım modları, Adet/Set desteği, Raf-QR, donanım tarayıcı, çevrimdışı destek', true, '{"allowNegativeStock":false,"cooldownMs":1500,"defaultInputMethod":"camera","defaultScanTarget":"units"}'),
-  ('store_module', 'Mağaza Modülü', 'Profesyonel e-ticaret mağaza arayüzü, akıllı satış özellikleri ve mağaza yönetim merkezi', true, '{}'),
+  ('scan_session', 'Tarama Oturumu (Scan Session)', 'Profesyonel toplu tarama oturumu', true, '{"allowNegativeStock":false,"cooldownMs":1500,"defaultInputMethod":"camera","defaultScanTarget":"units"}'),
+  ('store_module', 'Mağaza Modülü', 'Profesyonel e-ticaret mağaza arayüzü', true, '{}'),
   ('workflows', 'İş Akışları', 'Sipariş ve hareket durumu yönetimi', true, '{}')
 ON CONFLICT DO NOTHING;
 
+-- 9.5 Production Stages
+INSERT INTO public.production_stages (code, name, stage_type, order_index) VALUES
+  ('baski', 'Baskı', 'process', 1),
+  ('kesim', 'Kesim', 'process', 2),
+  ('firinlar', 'Fırınlar', 'process', 3),
+  ('zimpara', 'Zımpara', 'process', 4),
+  ('dekor', 'Dekor', 'process', 5),
+  ('tunel_firin', 'Tünel Fırın', 'process', 6),
+  ('paketleme', 'Paketleme', 'process', 7),
+  ('dabo', 'Dabo', 'process', 8)
+ON CONFLICT DO NOTHING;
+
 -- ============================================================
--- STEP 10: REALTIME (Optional - enable for tables you need)
+-- STEP 10: INDEXES
+-- ============================================================
+
+CREATE INDEX IF NOT EXISTS idx_products_search_text ON public.products USING gin (search_text gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_products_urun_kodu ON public.products (urun_kodu);
+CREATE INDEX IF NOT EXISTS idx_products_barkod ON public.products (barkod);
+CREATE INDEX IF NOT EXISTS idx_products_is_deleted ON public.products (is_deleted);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_product_id ON public.stock_movements (product_id);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_date ON public.stock_movements (movement_date);
+
+-- ============================================================
+-- STEP 11: REALTIME (Optional)
 -- ============================================================
 
 -- Uncomment below if you want realtime on specific tables:
@@ -1313,9 +1663,14 @@ ON CONFLICT DO NOTHING;
 -- DONE! Your database is now fully configured.
 -- 
 -- NEXT STEPS:
--- 1. Run this SQL in your Supabase project's SQL Editor
--- 2. Update your .env file with new project credentials:
+-- 1. Create a new Supabase project at https://supabase.com
+-- 2. Run this SQL in your Supabase project's SQL Editor
+-- 3. Update your .env file with new project credentials:
 --    VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 --    VITE_SUPABASE_PUBLISHABLE_KEY=your_anon_key
--- 3. Generate new types: npx supabase gen types typescript
+-- 4. Generate new types: npx supabase gen types typescript
+-- 5. Deploy to Vercel:
+--    - Push code to GitHub
+--    - Import repo in Vercel
+--    - Add env vars: VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY
 -- ============================================================
