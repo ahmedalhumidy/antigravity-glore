@@ -2,10 +2,8 @@
 // Restricts access to known application domains only
 
 const ALLOWED_ORIGINS = [
-  "https://app-turkiye-gelisimi.lovable.app",
-  "https://id-preview--d2145a40-41cf-49e6-8968-88ef491c1ef8.lovable.app",
+  "https://antigravity-glore.vercel.app",
   "http://localhost:5173",
-  "http://localhost:3000",
 ];
 
 export function getCorsHeaders(origin: string | null): Record<string, string> {
