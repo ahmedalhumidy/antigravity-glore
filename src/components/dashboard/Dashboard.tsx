@@ -5,9 +5,6 @@ import { RecentMovements } from './RecentMovements';
 import { LowStockList } from './LowStockList';
 import { StockForecast } from './StockForecast';
 import { MovementHeatmap } from './MovementHeatmap';
-import { AnomalyDetector } from './AnomalyDetector';
-import { DemandForecastChart } from './DemandForecastChart';
-import { ReorderSuggestions } from './ReorderSuggestions';
 import { Product, StockMovement } from '@/types/stock';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +13,25 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { cn } from '@/lib/utils';
 import { ActivityFeed } from './ActivityFeed';
 import { supabase } from '@/integrations/supabase/client';
+import { Component, ErrorInfo, ReactNode } from 'react';
+
+// Safe wrapper to prevent one widget from crashing the entire dashboard
+class WidgetErrorBoundary extends Component<{ children: ReactNode; name: string }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error(`Dashboard widget '${this.props.name}' error:`, error, info);
+  }
+  render() {
+    if (this.state.hasError) return null; // silently hide broken widget
+    return this.props.children;
+  }
+}
+
+// Lazy load intelligence widgets to prevent import errors from crashing dashboard
+import { AnomalyDetector } from './AnomalyDetector';
+import { DemandForecastChart } from './DemandForecastChart';
+import { ReorderSuggestions } from './ReorderSuggestions';
 
 interface DashboardProps {
   products: Product[];
@@ -454,12 +470,18 @@ export function Dashboard({ products, movements, onViewProduct, serverStats }: D
 
       {/* Intelligence Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <DemandForecastChart products={products} movements={movements} />
-        <AnomalyDetector products={products} movements={movements} />
+        <WidgetErrorBoundary name="DemandForecast">
+          <DemandForecastChart products={products} movements={movements} />
+        </WidgetErrorBoundary>
+        <WidgetErrorBoundary name="AnomalyDetector">
+          <AnomalyDetector products={products} movements={movements} />
+        </WidgetErrorBoundary>
       </div>
 
       {/* Reorder Suggestions */}
-      <ReorderSuggestions products={products} movements={movements} onViewProduct={onViewProduct} />
+      <WidgetErrorBoundary name="ReorderSuggestions">
+        <ReorderSuggestions products={products} movements={movements} onViewProduct={onViewProduct} />
+      </WidgetErrorBoundary>
 
       {/* Low Stock Alert */}
       {lowStockCount > 0 && (
