@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CalendarDays } from 'lucide-react';
 import { StockMovement } from '@/types/stock';
@@ -14,8 +14,6 @@ interface MovementHeatmapProps {
 }
 
 export function MovementHeatmap({ movements }: MovementHeatmapProps) {
-    const [hoveredCell, setHoveredCell] = useState<{ date: string; count: number } | null>(null);
-
     const { weeks, maxCount } = useMemo(() => {
         const now = new Date();
         const dayMap: Record<string, number> = {};
@@ -118,10 +116,8 @@ export function MovementHeatmap({ movements }: MovementHeatmapProps) {
                                                 className={cn(
                                                     'w-[13px] h-[13px] rounded-[3px] transition-all duration-150 cursor-default',
                                                     getIntensityClass(day.count),
-                                                    day.count >= 0 && 'hover:ring-1 hover:ring-foreground/20 hover:scale-125'
+                                                    day.count >= 0 && 'hover:ring-1 hover:ring-foreground/20 motion-safe:hover:scale-125'
                                                 )}
-                                                onMouseEnter={() => day.count >= 0 && setHoveredCell({ date: day.date, count: day.count })}
-                                                onMouseLeave={() => setHoveredCell(null)}
                                             />
                                         </TooltipTrigger>
                                         {day.count >= 0 && (

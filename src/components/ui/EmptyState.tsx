@@ -1,4 +1,4 @@
-import { LucideIcon, PackageOpen, Search, FileX, AlertCircle } from 'lucide-react';
+﻿import { LucideIcon, PackageOpen, Search, FileX, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -63,7 +63,7 @@ export function EmptyState({
             )}>
                 {/* Animated ring */}
                 <div className={cn(
-                    'absolute inset-0 rounded-2xl animate-pulse',
+                    'absolute inset-0 rounded-2xl motion-safe:animate-pulse',
                     config.iconBg,
                     'opacity-60'
                 )} />
@@ -99,7 +99,7 @@ export function EmptyState({
                     onClick={onAction}
                     size={compact ? 'sm' : 'default'}
                     className={cn(
-                        'mt-4 shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5',
+                        'mt-4 shadow-md hover:shadow-lg transition-all duration-200 motion-safe:hover:-translate-y-0.5',
                         compact && 'h-8 text-xs'
                     )}
                 >

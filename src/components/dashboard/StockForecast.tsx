@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+﻿import { useMemo } from 'react';
 import { AlertTriangle, Clock, TrendingDown, Flame } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -70,7 +70,6 @@ export function StockForecast({ products, movements, onViewProduct }: StockForec
             color: 'text-destructive',
             bg: 'bg-destructive/10',
             border: 'border-destructive/20',
-            progressColor: 'bg-destructive',
             label: 'Kritik',
             icon: Flame,
         },
@@ -78,7 +77,6 @@ export function StockForecast({ products, movements, onViewProduct }: StockForec
             color: 'text-warning',
             bg: 'bg-warning/10',
             border: 'border-warning/20',
-            progressColor: 'bg-warning',
             label: 'Uyarı',
             icon: AlertTriangle,
         },
@@ -86,7 +84,6 @@ export function StockForecast({ products, movements, onViewProduct }: StockForec
             color: 'text-info',
             bg: 'bg-info/10',
             border: 'border-info/20',
-            progressColor: 'bg-info',
             label: 'İzleme',
             icon: Clock,
         },
@@ -107,7 +104,7 @@ export function StockForecast({ products, movements, onViewProduct }: StockForec
             </CardHeader>
             <CardContent className="pt-0">
                 <div className="space-y-2.5">
-                    {forecasts.map((item, i) => {
+                    {forecasts.map((item) => {
                         const config = urgencyConfig[item.urgency];
                         const UrgencyIcon = config.icon;
                         const fillPercent = Math.max(5, Math.min(100, (item.daysUntilOut / 14) * 100));
@@ -119,10 +116,9 @@ export function StockForecast({ products, movements, onViewProduct }: StockForec
                                     'flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all duration-200 group border',
                                     config.bg,
                                     config.border,
-                                    'hover:shadow-sm hover:-translate-y-0.5'
+                                    'hover:shadow-sm motion-safe:hover:-translate-y-0.5'
                                 )}
                                 onClick={() => onViewProduct(item.id)}
-                                style={{ animationDelay: `${i * 80}ms` }}
                             >
                                 <div className={cn('p-1.5 rounded-lg flex-shrink-0', config.bg)}>
                                     <UrgencyIcon className={cn('w-3.5 h-3.5', config.color)} />

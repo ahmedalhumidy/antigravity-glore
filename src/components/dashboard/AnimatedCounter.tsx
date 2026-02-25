@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 
 interface AnimatedCounterProps {
     value: number;
@@ -22,8 +22,19 @@ export function AnimatedCounter({
     const frameRef = useRef<number>(0);
 
     useEffect(() => {
+        const prefersReducedMotion =
+            typeof window !== 'undefined' &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
         const startValue = prevValueRef.current;
         const endValue = value;
+
+        if (prefersReducedMotion || duration <= 0) {
+            setDisplayValue(endValue);
+            prevValueRef.current = endValue;
+            return;
+        }
+
         const startTime = performance.now();
 
         const animate = (currentTime: number) => {

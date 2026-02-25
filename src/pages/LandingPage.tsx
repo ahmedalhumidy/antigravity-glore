@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -17,6 +17,11 @@ import {
 } from "lucide-react";
 import { AnimatedCounter } from "@/components/dashboard/AnimatedCounter";
 
+type LandingStats = {
+  products: number;
+  stock: number;
+};
+
 const modules = [
   {
     title: "Depo Yönetimi",
@@ -27,7 +32,7 @@ const modules = [
   },
   {
     title: "Mağaza",
-    desc: "B2C / B2B satış portali",
+    desc: "B2C / B2B satış portalı",
     icon: ShoppingBag,
     color: "from-purple-500 to-pink-400",
     href: "/magaza",
@@ -86,21 +91,57 @@ const features = [
 ];
 
 export default function LandingPage() {
-  const [stats, setStats] = useState({ products: 0, stock: 0 });
+  const [stats, setStats] = useState<LandingStats>({ products: 0, stock: 0 });
 
   useEffect(() => {
-    (async () => {
-      const { count } = await supabase
-        .from("products")
-        .select("*", { count: "exact", head: true })
-        .eq("is_deleted", false);
-      const { data } = await supabase
-        .from("products")
-        .select("mevcut_stok")
-        .eq("is_deleted", false);
-      const totalStock = (data || []).reduce((s, r) => s + (r.mevcut_stok || 0), 0);
-      setStats({ products: count || 0, stock: totalStock });
-    })();
+    let alive = true;
+
+    const loadStats = async () => {
+      try {
+        const { data: dashboardData, error: dashboardError } = await supabase.rpc("get_dashboard_stats");
+
+        if (!dashboardError && dashboardData?.[0]) {
+          const row = dashboardData[0];
+          if (alive) {
+            setStats({
+              products: row.total_products ?? 0,
+              stock: row.total_stock ?? 0,
+            });
+          }
+          return;
+        }
+
+        // Fallback if RPC is unavailable in current environment/policies.
+        const { data: products, error: productsError } = await supabase
+          .from("products")
+          .select("mevcut_stok")
+          .eq("is_deleted", false);
+
+        if (productsError) {
+          throw productsError;
+        }
+
+        if (alive) {
+          const safeRows = products ?? [];
+          const totalStock = safeRows.reduce((sum, row) => sum + (row.mevcut_stok || 0), 0);
+          setStats({
+            products: safeRows.length,
+            stock: totalStock,
+          });
+        }
+      } catch (error) {
+        console.error("Landing stats could not be loaded:", error);
+        if (alive) {
+          setStats({ products: 0, stock: 0 });
+        }
+      }
+    };
+
+    loadStats();
+
+    return () => {
+      alive = false;
+    };
   }, []);
 
   return (
@@ -263,7 +304,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="relative border-t border-white/[0.06] py-8 text-center">
         <p className="text-xs text-white/25">
-          © {new Date().getFullYear()} Depo Yönetim Sistemi — Kurumsal Çözüm
+          © {new Date().getFullYear()} Depo Yönetim Sistemi - Kurumsal Çözüm
         </p>
       </footer>
     </div>
