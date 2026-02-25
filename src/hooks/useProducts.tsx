@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/stock';
 import { toast } from 'sonner';
@@ -25,94 +26,88 @@ function mapRow(p: any): Product {
   };
 }
 
+// Shared query key — every call to useProducts shares the same cache
+const PRODUCTS_QUERY_KEY = ['products'];
+
+async function fetchProductsPage(page: number) {
+  const from = page * PAGE_SIZE;
+  const { data, error, count } = await supabase
+    .from('products')
+    .select('*', { count: 'exact' })
+    .eq('is_deleted', false)
+    .order('created_at', { ascending: false })
+    .range(from, from + PAGE_SIZE - 1);
+
+  if (error) throw error;
+  return { rows: (data || []).map(mapRow), totalCount: count ?? 0 };
+}
+
 export function useProducts() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [totalCount, setTotalCount] = useState(0);
-  const [currentPage, setCurrentPage] = useState(0);
+  const queryClient = useQueryClient();
 
-  const hasMore = products.length < totalCount;
+  // ─── Main query (page 0) ───
+  const {
+    data,
+    isLoading: loading,
+  } = useQuery({
+    queryKey: PRODUCTS_QUERY_KEY,
+    queryFn: () => fetchProductsPage(0),
+    staleTime: 60_000,
+  });
 
-  const fetchProducts = useCallback(async () => {
-    try {
-      setLoading(true);
-      const { data, error, count } = await supabase
-        .from('products')
-        .select('*', { count: 'exact' })
-        .eq('is_deleted', false)
-        .order('created_at', { ascending: false })
-        .range(0, PAGE_SIZE - 1);
+  const products = data?.rows ?? [];
+  const totalCount = data?.totalCount ?? 0;
 
-      if (error) throw error;
+  // ─── Pagination (load-more) ───
+  const {
+    data: infiniteData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage: loadingMore,
+  } = useInfiniteQuery({
+    queryKey: [...PRODUCTS_QUERY_KEY, 'infinite'],
+    queryFn: ({ pageParam = 1 }) => fetchProductsPage(pageParam),
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.length * PAGE_SIZE;
+      return loaded < lastPage.totalCount ? allPages.length : undefined;
+    },
+    initialPageParam: 1,
+    enabled: false, // only fetched on-demand via loadMore()
+  });
 
-      setTotalCount(count ?? 0);
-      setCurrentPage(0);
-      setProducts((data || []).map(mapRow));
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      toast.error('Ürünler yüklenirken hata oluştu');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Combine first page from main query with subsequent pages from infinite query
+  const allProducts = infiniteData
+    ? [...products, ...infiniteData.pages.flatMap(p => p.rows)]
+    : products;
 
-  useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+  const hasMore = allProducts.length < totalCount;
 
-  // Realtime subscription for live updates across sessions
+  const loadMore = useCallback(() => {
+    fetchNextPage();
+  }, [fetchNextPage]);
+
+  // ─── Realtime subscription: invalidate cache on changes ───
   useEffect(() => {
     const channel = supabase
-      .channel('products-realtime')
+      .channel('products-realtime-tq')
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'products',
-        },
+        { event: '*', schema: 'public', table: 'products' },
         () => {
-          // Debounce: re-fetch products when any change happens
-          fetchProducts();
-        }
+          queryClient.invalidateQueries({ queryKey: PRODUCTS_QUERY_KEY });
+        },
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchProducts]);
+  }, [queryClient]);
 
-  const loadMore = useCallback(async () => {
-    if (loadingMore) return;
-    try {
-      setLoadingMore(true);
-      const nextPage = currentPage + 1;
-      const from = nextPage * PAGE_SIZE;
+  // ─── Mutations ───
 
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_deleted', false)
-        .order('created_at', { ascending: false })
-        .range(from, from + PAGE_SIZE - 1);
-
-      if (error) throw error;
-
-      const mapped = (data || []).map(mapRow);
-      setProducts(prev => [...prev, ...mapped]);
-      setCurrentPage(nextPage);
-    } catch (error) {
-      console.error('Error loading more products:', error);
-      toast.error('Daha fazla ürün yüklenirken hata oluştu');
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [currentPage, loadingMore]);
-
-  const addProduct = async (productData: Omit<Product, 'id'>) => {
-    try {
+  const addMutation = useMutation({
+    mutationFn: async (productData: Omit<Product, 'id'>) => {
       const { data, error } = await supabase
         .from('products')
         .insert({
@@ -133,21 +128,22 @@ export function useProducts() {
         .single();
 
       if (error) throw error;
-
-      const newProduct = mapRow(data);
-      setProducts(prev => [newProduct, ...prev]);
-      setTotalCount(prev => prev + 1);
+      return mapRow(data);
+    },
+    onSuccess: (newProduct) => {
+      queryClient.setQueryData(PRODUCTS_QUERY_KEY, (old: any) =>
+        old ? { ...old, rows: [newProduct, ...old.rows], totalCount: old.totalCount + 1 } : old,
+      );
       toast.success('Yeni ürün eklendi');
-      return newProduct;
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Error adding product:', error);
       toast.error('Ürün eklenirken hata oluştu');
-      return null;
-    }
-  };
+    },
+  });
 
-  const updateProduct = async (productData: Product) => {
-    try {
+  const updateMutation = useMutation({
+    mutationFn: async (productData: Product) => {
       const { error } = await supabase
         .from('products')
         .update({
@@ -167,19 +163,22 @@ export function useProducts() {
         .eq('id', productData.id);
 
       if (error) throw error;
-
-      setProducts(prev => prev.map(p => p.id === productData.id ? productData : p));
+      return productData;
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData(PRODUCTS_QUERY_KEY, (old: any) =>
+        old ? { ...old, rows: old.rows.map((p: Product) => p.id === updated.id ? updated : p) } : old,
+      );
       toast.success('Ürün güncellendi');
-      return true;
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Error updating product:', error);
       toast.error('Ürün güncellenirken hata oluştu');
-      return false;
-    }
-  };
+    },
+  });
 
-  const deleteProduct = async (id: string) => {
-    try {
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('products')
         .update({
@@ -189,25 +188,64 @@ export function useProducts() {
         .eq('id', id);
 
       if (error) throw error;
-
-      const product = products.find(p => p.id === id);
-      setProducts(prev => prev.filter(p => p.id !== id));
-      setTotalCount(prev => prev - 1);
+      return id;
+    },
+    onSuccess: (id) => {
+      const product = allProducts.find(p => p.id === id);
+      queryClient.setQueryData(PRODUCTS_QUERY_KEY, (old: any) =>
+        old ? { ...old, rows: old.rows.filter((p: Product) => p.id !== id), totalCount: old.totalCount - 1 } : old,
+      );
       toast.success(`${product?.urunAdi || 'Ürün'} arşivlendi`);
-      return true;
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Error archiving product:', error);
       toast.error('Ürün arşivlenirken hata oluştu');
-      return false;
-    }
-  };
+    },
+  });
 
-  const refreshProducts = () => {
-    fetchProducts();
-  };
+  // ─── Stable wrapper functions (same API as before) ───
+
+  const addProduct = useCallback(
+    async (productData: Omit<Product, 'id'>) => {
+      try {
+        return await addMutation.mutateAsync(productData);
+      } catch {
+        return null;
+      }
+    },
+    [addMutation],
+  );
+
+  const updateProduct = useCallback(
+    async (productData: Product) => {
+      try {
+        await updateMutation.mutateAsync(productData);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [updateMutation],
+  );
+
+  const deleteProduct = useCallback(
+    async (id: string) => {
+      try {
+        await deleteMutation.mutateAsync(id);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [deleteMutation],
+  );
+
+  const refreshProducts = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: PRODUCTS_QUERY_KEY });
+  }, [queryClient]);
 
   return {
-    products,
+    products: allProducts,
     loading,
     loadingMore,
     totalCount,
@@ -217,6 +255,6 @@ export function useProducts() {
     updateProduct,
     deleteProduct,
     refreshProducts,
-    setProducts,
+    setProducts: () => { }, // no-op — managed by TanStack Query cache now
   };
 }
