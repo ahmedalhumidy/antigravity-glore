@@ -246,6 +246,13 @@ const Index = () => {
     'uretim-dabo': "Dabo",
   };
 
+  // Global keyboard navigation (must be before any conditional returns — Rules of Hooks)
+  useKeyboardNavigation({
+    onNewProduct: handleAddProduct,
+    onScan: () => setScanModalOpen(true),
+    onTransfer: () => setShowTransfer(true),
+  });
+
   // Only block on products loading - movements load independently
   if (productsLoading) {
     return (
@@ -260,13 +267,6 @@ const Index = () => {
       </div>
     );
   }
-
-  // Global keyboard navigation
-  useKeyboardNavigation({
-    onNewProduct: handleAddProduct,
-    onScan: () => setScanModalOpen(true),
-    onTransfer: () => setShowTransfer(true),
-  });
 
   // Audit mode overlay
   if (auditModeOpen) {

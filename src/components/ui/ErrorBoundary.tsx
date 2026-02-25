@@ -70,8 +70,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                             sorun devam ederse yöneticinizle iletişime geçin.
                         </p>
 
-                        {/* Error details — temporarily visible in production for debugging */}
-                        {this.state.error && (
+                        {/* Error details (dev mode only) */}
+                        {import.meta.env.DEV && this.state.error && (
                             <details className="mb-6 text-left">
                                 <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
                                     Hata detayları (geliştirici)
