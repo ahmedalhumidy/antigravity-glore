@@ -35,6 +35,7 @@ export function MobileBottomNav({ onScanPress, onMenuPress }: MobileBottomNavPro
                 key="scan"
                 onClick={onScanPress}
                 className="flex flex-col items-center justify-center -mt-5 touch-feedback"
+                data-tour="scan"
               >
                 {/* Pulsing ring */}
                 <div className="relative">

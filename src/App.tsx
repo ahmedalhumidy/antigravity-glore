@@ -14,6 +14,9 @@ import { PWAUpdateNotification } from "@/components/pwa/PWAUpdateNotification";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { ProductIntelligenceDrawer } from "@/components/products/ProductIntelligenceDrawer";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { KeyboardShortcutsOverlay } from "@/components/ui/KeyboardShortcutsOverlay";
+import { OnboardingProvider } from "@/components/onboarding/OnboardingTour";
+import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { useProducts } from "@/hooks/useProducts";
 import { Product } from "@/types/stock";
 import { QuoteCartProvider } from "@/modules/magaza/context/QuoteCartContext";
@@ -48,11 +51,7 @@ const queryClient = new QueryClient({
 });
 
 function PageLoader() {
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-    </div>
-  );
+  return <LoadingSkeleton variant="page" />;
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -222,11 +221,14 @@ const App = () => (
                   <WorkingContextProvider>
                     <SearchControllerProvider>
                       <ErrorBoundary level="app">
-                        <AppRoutes />
-                        <GlobalProductDrawer />
-                        <SearchDebugOverlay />
-                        <PWAUpdateNotification />
-                        <OfflineIndicator />
+                        <OnboardingProvider>
+                          <AppRoutes />
+                          <GlobalProductDrawer />
+                          <KeyboardShortcutsOverlay />
+                          <SearchDebugOverlay />
+                          <PWAUpdateNotification />
+                          <OfflineIndicator />
+                        </OnboardingProvider>
                       </ErrorBoundary>
                     </SearchControllerProvider>
                   </WorkingContextProvider>

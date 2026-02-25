@@ -20,6 +20,7 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       className="h-9 w-9 rounded-lg relative overflow-hidden"
+      data-tour="theme"
       onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
       title={theme === 'dark' ? 'Açık tema' : 'Koyu tema'}
     >

@@ -23,6 +23,7 @@ import { AlertsPopover } from './AlertsPopover';
 import { SearchPalette } from './SearchPalette';
 import { Z } from '@/lib/layers';
 import { cn } from '@/lib/utils';
+import { UserPresenceIndicator } from '@/components/ui/UserPresence';
 
 // Command definitions
 const COMMANDS = [
@@ -76,8 +77,8 @@ export function SmartTopBar({
   const syncState: 'synced' | 'pending' | 'offline' = !isOnline
     ? 'offline'
     : pendingActions.length > 0
-    ? 'pending'
-    : 'synced';
+      ? 'pending'
+      : 'synced';
 
   const syncColors = {
     synced: 'bg-green-500',
@@ -239,7 +240,7 @@ export function SmartTopBar({
             </div>
 
             {/* CENTER — Universal Command Input */}
-            <div ref={inputContainerRef} className="relative flex-1 min-w-0">
+            <div ref={inputContainerRef} className="relative flex-1 min-w-0" data-tour="search">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                 <input
@@ -285,14 +286,16 @@ export function SmartTopBar({
               mobileInputExpanded && search.query ? 'hidden md:flex' : 'flex'
             )}>
               <GlobalScannerButton />
-              <RadialActionMenu
-                onStockIn={() => { if (lockedProduct) onStockAction(lockedProduct, 'giris'); else onAddProduct(); }}
-                onStockOut={() => { if (lockedProduct) onStockAction(lockedProduct, 'cikis'); else toast.info('Çıkış için önce bir ürün tarayın veya seçin'); }}
-                onCount={() => toast.info('Sayım için önce bir ürün tarayın')}
-                onTransfer={onOpenTransfer}
-                onDamage={() => toast.info('Hasar bildirimi için önce bir ürün tarayın')}
-                onPrintLabel={() => toast.info('Etiket yazdırmak için önce bir ürün seçin')}
-              />
+              <div data-tour="quick-actions">
+                <RadialActionMenu
+                  onStockIn={() => { if (lockedProduct) onStockAction(lockedProduct, 'giris'); else onAddProduct(); }}
+                  onStockOut={() => { if (lockedProduct) onStockAction(lockedProduct, 'cikis'); else toast.info('Çıkış için önce bir ürün tarayın veya seçin'); }}
+                  onCount={() => toast.info('Sayım için önce bir ürün tarayın')}
+                  onTransfer={onOpenTransfer}
+                  onDamage={() => toast.info('Hasar bildirimi için önce bir ürün tarayın')}
+                  onPrintLabel={() => toast.info('Etiket yazdırmak için önce bir ürün seçin')}
+                />
+              </div>
               <AlertsPopover
                 products={products}
                 pendingSyncCount={pendingActions.length}
@@ -300,6 +303,7 @@ export function SmartTopBar({
                 onViewProduct={(id) => search.openProduct(id)}
               />
               <ThemeToggle />
+              <UserPresenceIndicator className="hidden lg:flex" />
               <div className="hidden lg:flex items-center gap-1 px-2 py-1 rounded-md bg-muted/50" title="Bugünkü işlemler">
                 <Activity className="w-3.5 h-3.5 text-muted-foreground" />
                 <span className="text-[10px] font-semibold text-muted-foreground">{ctx.sessionCount}</span>

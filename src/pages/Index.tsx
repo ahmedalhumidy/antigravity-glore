@@ -29,6 +29,7 @@ import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 
 // Lazy load heavy pages
 const UserManagement = lazy(() =>
@@ -251,241 +252,248 @@ const Index = () => {
         <div className="lg:ml-64">
           <SkeletonLoader />
         </div>
-        <MobileBottomNav onScanPress={() => {}} onMenuPress={() => {}} />
+        <MobileBottomNav onScanPress={() => { }} onMenuPress={() => { }} />
       </div>
     );
   }
 
+  // Global keyboard navigation
+  useKeyboardNavigation({
+    onNewProduct: handleAddProduct,
+    onScan: () => setScanModalOpen(true),
+    onTransfer: () => setShowTransfer(true),
+  });
+
   return (
     <GlobalScannerProvider>
-    <div className="min-h-screen bg-background">
-      {/* Desktop Sidebar only */}
-      <div className="hidden lg:block">
-        <Sidebar currentView={currentView} onViewChange={setCurrentView} alertCount={lowStockCount} />
-      </div>
+      <div className="min-h-screen bg-background">
+        {/* Desktop Sidebar only */}
+        <div className="hidden lg:block">
+          <Sidebar currentView={currentView} onViewChange={setCurrentView} alertCount={lowStockCount} />
+        </div>
 
-      {/* Main Content */}
-      <div className="lg:ml-64 pb-24 lg:pb-0 px-2 sm:px-4">
-        <SmartTopBar
-          products={products}
-          onAddProduct={handleAddProduct}
-          onProductFound={handleScanProductFound}
-          onBarcodeNotFound={handleScanBarcodeNotFound}
-          onStockAction={handleStockAction}
-          onStockUpdated={refreshProducts}
-          onOpenScan={() => setScanModalOpen(true)}
-          onOpenTransfer={() => setShowTransfer(true)}
-        />
+        {/* Main Content */}
+        <div className="lg:ml-64 pb-24 lg:pb-0 px-2 sm:px-4">
+          <SmartTopBar
+            products={products}
+            onAddProduct={handleAddProduct}
+            onProductFound={handleScanProductFound}
+            onBarcodeNotFound={handleScanBarcodeNotFound}
+            onStockAction={handleStockAction}
+            onStockUpdated={refreshProducts}
+            onOpenScan={() => setScanModalOpen(true)}
+            onOpenTransfer={() => setShowTransfer(true)}
+          />
 
-        <main className="p-3 md:p-6 pb-safe">
-          {/* Page Title - desktop shows sign out, mobile hides it (available in Profile) */}
-          {currentView !== "dashboard" && (
-            <div className="mb-4 md:mb-6 flex items-center justify-between">
-              <div>
-                <h1 className="text-lg md:text-2xl font-bold text-foreground">{viewTitles[currentView]}</h1>
-                <p className="text-xs md:text-sm text-muted-foreground mt-0.5 hidden lg:block">{user?.email}</p>
+          <main className="p-3 md:p-6 pb-safe">
+            {/* Page Title - desktop shows sign out, mobile hides it (available in Profile) */}
+            {currentView !== "dashboard" && (
+              <div className="mb-4 md:mb-6 flex items-center justify-between">
+                <div>
+                  <h1 className="text-lg md:text-2xl font-bold text-foreground">{viewTitles[currentView]}</h1>
+                  <p className="text-xs md:text-sm text-muted-foreground mt-0.5 hidden lg:block">{user?.email}</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleSignOut} className="h-8 md:h-9 text-xs md:text-sm hidden lg:flex">
+                  <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5" />
+                  Çıkış
+                </Button>
               </div>
-              <Button variant="outline" size="sm" onClick={handleSignOut} className="h-8 md:h-9 text-xs md:text-sm hidden lg:flex">
-                <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5" />
-                Çıkış
-              </Button>
-            </div>
-          )}
+            )}
 
-          {currentView === "dashboard" && (
-            <div className="hidden lg:flex justify-end mb-3 md:mb-4">
-              <Button variant="outline" size="sm" onClick={handleSignOut} className="h-8 md:h-9 text-xs md:text-sm">
-                <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5" />
-                Çıkış
-              </Button>
-            </div>
-          )}
+            {currentView === "dashboard" && (
+              <div className="hidden lg:flex justify-end mb-3 md:mb-4">
+                <Button variant="outline" size="sm" onClick={handleSignOut} className="h-8 md:h-9 text-xs md:text-sm">
+                  <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5" />
+                  Çıkış
+                </Button>
+              </div>
+            )}
 
-          {/* Content */}
-          {currentView === "dashboard" && (
-            <Dashboard products={products} movements={movements} onViewProduct={handleViewProduct} serverStats={dashboardStats} />
-          )}
+            {/* Content */}
+            {currentView === "dashboard" && (
+              <Dashboard products={products} movements={movements} onViewProduct={handleViewProduct} serverStats={dashboardStats} />
+            )}
 
-          {currentView === "products" && (
-            <ProductList
+            {currentView === "products" && (
+              <ProductList
+                products={products}
+                onEditProduct={handleEditProduct}
+                onDeleteProduct={handleDeleteProduct}
+                onViewProduct={handleViewProduct}
+                onStockAction={handleStockAction}
+                totalCount={totalCount}
+                hasMore={hasMore}
+                loadingMore={loadingMore}
+                onLoadMore={loadMore}
+              />
+            )}
+
+            {currentView === "movements" && (
+              <MovementPage
+                products={products}
+                movements={movements}
+                searchQuery={searchQuery}
+                onAddMovement={handleAddMovement}
+                onAddNewProduct={handleAddNewProductFromMovement}
+                onStockUpdated={refreshProducts}
+              />
+            )}
+
+            {currentView === "locations" && (
+              <LocationView products={products} searchQuery={searchQuery} onViewProduct={handleViewProduct} />
+            )}
+
+            {currentView === "alerts" && (
+              <AlertList
+                products={products}
+                searchQuery={searchQuery}
+                onStockAction={handleStockAction}
+                onViewProduct={handleViewProduct}
+              />
+            )}
+
+            {currentView === "users" && (
+              <Suspense fallback={<LazyPageLoader />}>
+                <UserManagement />
+              </Suspense>
+            )}
+
+            {currentView === "logs" && (
+              <Suspense fallback={<LazyPageLoader />}>
+                <AuditLogList />
+              </Suspense>
+            )}
+
+            {currentView === "reports" && (
+              <Suspense fallback={<LazyPageLoader />}>
+                <ReportsPage products={products} movements={movements} />
+              </Suspense>
+            )}
+
+            {currentView === "profile" && (
+              <Suspense fallback={<LazyPageLoader />}>
+                <ProfileSettings />
+              </Suspense>
+            )}
+
+            {currentView === "settings" && (
+              <Suspense fallback={<LazyPageLoader />}>
+                <SystemSettingsPage />
+              </Suspense>
+            )}
+
+            {currentView === "archive" && (
+              <Suspense fallback={<LazyPageLoader />}>
+                <ArchiveManagement />
+              </Suspense>
+            )}
+
+            {currentView === "control-center" && (
+              <Suspense fallback={<LazyPageLoader />}>
+                <ControlCenterPage />
+              </Suspense>
+            )}
+
+            {(currentView === "admin-magaza" || currentView === "admin-magaza-urunler") && (
+              <Suspense fallback={<LazyPageLoader />}>
+                <AdminMagazaPage />
+              </Suspense>
+            )}
+
+            {currentView === "admin-magaza-teklifler" && (
+              <Suspense fallback={<LazyPageLoader />}>
+                <AdminQuotesPage />
+              </Suspense>
+            )}
+
+            {currentView === "admin-magaza-kampanyalar" && (
+              <Suspense fallback={<LazyPageLoader />}>
+                <AdminPromotionsPage />
+              </Suspense>
+            )}
+
+            {currentView === "admin-galeri" && (
+              <Suspense fallback={<LazyPageLoader />}>
+                <AdminGaleriPage />
+              </Suspense>
+            )}
+
+            {currentView === "uretim-baski" && (<Suspense fallback={<LazyPageLoader />}><BaskiPage /></Suspense>)}
+            {currentView === "uretim-kesim" && (<Suspense fallback={<LazyPageLoader />}><KesimPage /></Suspense>)}
+            {currentView === "uretim-firinlar" && (<Suspense fallback={<LazyPageLoader />}><FirinlarPage /></Suspense>)}
+            {currentView === "uretim-zimpara" && (<Suspense fallback={<LazyPageLoader />}><ZimparaPage /></Suspense>)}
+            {currentView === "uretim-dekor" && (<Suspense fallback={<LazyPageLoader />}><DekorPage /></Suspense>)}
+            {currentView === "uretim-tunel-firin" && (<Suspense fallback={<LazyPageLoader />}><TunelFirinPage /></Suspense>)}
+            {currentView === "uretim-paketleme" && (<Suspense fallback={<LazyPageLoader />}><PaketlemePage /></Suspense>)}
+            {currentView === "uretim-dabo" && (<Suspense fallback={<LazyPageLoader />}><DaboPage /></Suspense>)}
+
+          </main>
+        </div>
+
+        {/* Mobile Bottom Nav */}
+        <MobileBottomNav onScanPress={() => setScanModalOpen(true)} onMenuPress={() => setMenuOpen(true)} />
+
+        {/* Mobile Menu Drawer */}
+        <MobileMoreHub open={menuOpen} onClose={() => setMenuOpen(false)} alertCount={lowStockCount} />
+
+        {/* Scan Session Modal (lazy) */}
+        {scanModalOpen && (
+          <Suspense fallback={null}>
+            <ScanSessionModal
+              isOpen={scanModalOpen}
+              onClose={() => setScanModalOpen(false)}
               products={products}
-              onEditProduct={handleEditProduct}
-              onDeleteProduct={handleDeleteProduct}
-              onViewProduct={handleViewProduct}
-              onStockAction={handleStockAction}
-              totalCount={totalCount}
-              hasMore={hasMore}
-              loadingMore={loadingMore}
-              onLoadMore={loadMore}
-            />
-          )}
-
-          {currentView === "movements" && (
-            <MovementPage
-              products={products}
-              movements={movements}
-              searchQuery={searchQuery}
-              onAddMovement={handleAddMovement}
-              onAddNewProduct={handleAddNewProductFromMovement}
+              initialMode="in"
               onStockUpdated={refreshProducts}
             />
-          )}
+          </Suspense>
+        )}
 
-          {currentView === "locations" && (
-            <LocationView products={products} searchQuery={searchQuery} onViewProduct={handleViewProduct} />
-          )}
+        {/* Modals */}
+        <ProductModal
+          isOpen={productModalOpen}
+          onClose={() => {
+            setProductModalOpen(false);
+            setSelectedProduct(null);
+            setPendingBarcode(undefined);
+          }}
+          onSave={handleSaveProduct}
+          product={selectedProduct}
+          initialBarcode={pendingBarcode}
+          onStockUpdated={refreshProducts}
+        />
 
-          {currentView === "alerts" && (
-            <AlertList
-              products={products}
-              searchQuery={searchQuery}
-              onStockAction={handleStockAction}
-              onViewProduct={handleViewProduct}
-            />
-          )}
+        <StockActionModal
+          isOpen={stockActionModalOpen}
+          onClose={() => {
+            setStockActionModalOpen(false);
+            setSelectedProduct(null);
+          }}
+          onSuccess={() => {
+            refreshProducts();
+          }}
+          product={selectedProduct}
+          actionType={stockActionType}
+        />
 
-          {currentView === "users" && (
-            <Suspense fallback={<LazyPageLoader />}>
-              <UserManagement />
-            </Suspense>
-          )}
+        {/* Drawer is now rendered globally in App.tsx via GlobalProductDrawer */}
 
-          {currentView === "logs" && (
-            <Suspense fallback={<LazyPageLoader />}>
-              <AuditLogList />
-            </Suspense>
-          )}
+        <TransferShelfModal
+          isOpen={showTransfer}
+          onClose={() => setShowTransfer(false)}
+          products={products}
+          onTransferred={refreshProducts}
+        />
 
-          {currentView === "reports" && (
-            <Suspense fallback={<LazyPageLoader />}>
-              <ReportsPage products={products} movements={movements} />
-            </Suspense>
-          )}
-
-          {currentView === "profile" && (
-            <Suspense fallback={<LazyPageLoader />}>
-              <ProfileSettings />
-            </Suspense>
-          )}
-
-          {currentView === "settings" && (
-            <Suspense fallback={<LazyPageLoader />}>
-              <SystemSettingsPage />
-            </Suspense>
-          )}
-
-          {currentView === "archive" && (
-            <Suspense fallback={<LazyPageLoader />}>
-              <ArchiveManagement />
-            </Suspense>
-          )}
-
-          {currentView === "control-center" && (
-            <Suspense fallback={<LazyPageLoader />}>
-              <ControlCenterPage />
-            </Suspense>
-          )}
-
-          {(currentView === "admin-magaza" || currentView === "admin-magaza-urunler") && (
-            <Suspense fallback={<LazyPageLoader />}>
-              <AdminMagazaPage />
-            </Suspense>
-          )}
-
-          {currentView === "admin-magaza-teklifler" && (
-            <Suspense fallback={<LazyPageLoader />}>
-              <AdminQuotesPage />
-            </Suspense>
-          )}
-
-          {currentView === "admin-magaza-kampanyalar" && (
-            <Suspense fallback={<LazyPageLoader />}>
-              <AdminPromotionsPage />
-            </Suspense>
-          )}
-
-          {currentView === "admin-galeri" && (
-            <Suspense fallback={<LazyPageLoader />}>
-              <AdminGaleriPage />
-            </Suspense>
-          )}
-
-          {currentView === "uretim-baski" && (<Suspense fallback={<LazyPageLoader />}><BaskiPage /></Suspense>)}
-          {currentView === "uretim-kesim" && (<Suspense fallback={<LazyPageLoader />}><KesimPage /></Suspense>)}
-          {currentView === "uretim-firinlar" && (<Suspense fallback={<LazyPageLoader />}><FirinlarPage /></Suspense>)}
-          {currentView === "uretim-zimpara" && (<Suspense fallback={<LazyPageLoader />}><ZimparaPage /></Suspense>)}
-          {currentView === "uretim-dekor" && (<Suspense fallback={<LazyPageLoader />}><DekorPage /></Suspense>)}
-          {currentView === "uretim-tunel-firin" && (<Suspense fallback={<LazyPageLoader />}><TunelFirinPage /></Suspense>)}
-          {currentView === "uretim-paketleme" && (<Suspense fallback={<LazyPageLoader />}><PaketlemePage /></Suspense>)}
-          {currentView === "uretim-dabo" && (<Suspense fallback={<LazyPageLoader />}><DaboPage /></Suspense>)}
-
-        </main>
+        {/* Global Scanner System */}
+        <GlobalScannerModal products={products} />
+        <CopilotActionSheet
+          onViewProduct={handleViewProduct}
+          onStockAction={handleStockAction}
+          onStockUpdated={refreshProducts}
+        />
+        <QuickCreateProductSheet />
       </div>
-
-      {/* Mobile Bottom Nav */}
-      <MobileBottomNav onScanPress={() => setScanModalOpen(true)} onMenuPress={() => setMenuOpen(true)} />
-
-      {/* Mobile Menu Drawer */}
-      <MobileMoreHub open={menuOpen} onClose={() => setMenuOpen(false)} alertCount={lowStockCount} />
-
-      {/* Scan Session Modal (lazy) */}
-      {scanModalOpen && (
-        <Suspense fallback={null}>
-          <ScanSessionModal
-            isOpen={scanModalOpen}
-            onClose={() => setScanModalOpen(false)}
-            products={products}
-            initialMode="in"
-            onStockUpdated={refreshProducts}
-          />
-        </Suspense>
-      )}
-
-      {/* Modals */}
-      <ProductModal
-        isOpen={productModalOpen}
-        onClose={() => {
-          setProductModalOpen(false);
-          setSelectedProduct(null);
-          setPendingBarcode(undefined);
-        }}
-        onSave={handleSaveProduct}
-        product={selectedProduct}
-        initialBarcode={pendingBarcode}
-        onStockUpdated={refreshProducts}
-      />
-
-      <StockActionModal
-        isOpen={stockActionModalOpen}
-        onClose={() => {
-          setStockActionModalOpen(false);
-          setSelectedProduct(null);
-        }}
-        onSuccess={() => {
-          refreshProducts();
-        }}
-        product={selectedProduct}
-        actionType={stockActionType}
-      />
-
-      {/* Drawer is now rendered globally in App.tsx via GlobalProductDrawer */}
-
-      <TransferShelfModal
-        isOpen={showTransfer}
-        onClose={() => setShowTransfer(false)}
-        products={products}
-        onTransferred={refreshProducts}
-      />
-
-      {/* Global Scanner System */}
-      <GlobalScannerModal products={products} />
-      <CopilotActionSheet
-        onViewProduct={handleViewProduct}
-        onStockAction={handleStockAction}
-        onStockUpdated={refreshProducts}
-      />
-      <QuickCreateProductSheet />
-    </div>
     </GlobalScannerProvider>
   );
 };
