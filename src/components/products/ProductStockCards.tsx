@@ -4,6 +4,7 @@ import { StockLevelGauge } from './StockLevelGauge';
 import { Package, Layers, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Area, AreaChart, ResponsiveContainer } from 'recharts';
+import { AnimatedCounter } from '@/components/dashboard/AnimatedCounter';
 
 interface ProductStockCardsProps {
   product: Product;
@@ -48,7 +49,9 @@ export function ProductStockCards({ product, sparklineData }: ProductStockCardsP
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[11px] text-muted-foreground font-medium">{card.label}</p>
-              <p className={cn('text-xl font-bold mt-0.5', card.color)}>{card.value}</p>
+              <p className={cn('text-xl font-bold mt-0.5', card.color)}>
+                <AnimatedCounter value={card.value} />
+              </p>
             </div>
             {card.gauge ? (
               <StockLevelGauge current={product.mevcutStok} min={product.minStok} size={48} />

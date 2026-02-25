@@ -1,8 +1,8 @@
-import { 
-  LayoutDashboard, 
-  Package, 
-  ArrowLeftRight, 
-  MapPin, 
+import {
+  LayoutDashboard,
+  Package,
+  ArrowLeftRight,
+  MapPin,
   AlertTriangle,
   UserCog,
   Users,
@@ -23,13 +23,18 @@ import {
   Paintbrush,
   ThermometerSun,
   PackageCheck,
-  Drill
+  Drill,
+  LogOut,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { ViewMode } from '@/types/stock';
 import { cn } from '@/lib/utils';
 import { usePermissions, PermissionType } from '@/hooks/usePermissions';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
+import { useAuth } from '@/hooks/useAuth';
+import { useState } from 'react';
 
 interface SidebarProps {
   currentView: ViewMode;
@@ -79,14 +84,15 @@ const productionItems: MenuItem[] = [
 export function Sidebar({ currentView, onViewChange, alertCount }: SidebarProps) {
   const { hasPermission } = usePermissions();
   const { organization } = useSystemSettings();
+  const { user, role, signOut } = useAuth();
   const location = useLocation();
-  
+  const [productionOpen, setProductionOpen] = useState(true);
+
   const visibleMenuItems = menuItems.filter(item => {
     if (!item.requiredPermission) return true;
     return hasPermission(item.requiredPermission);
   });
 
-  // Determine active state from URL for reliability
   const getIsActive = (path: string) => {
     if (path === '/') {
       return location.pathname === '/';
@@ -96,26 +102,32 @@ export function Sidebar({ currentView, onViewChange, alertCount }: SidebarProps)
 
   const companyName = organization?.name || 'GLORE';
   const logoUrl = organization?.logo_url || '/favicon.png';
+  const userName = user?.email?.split('@')[0] || 'Kullanıcı';
+  const roleLabel = role === 'admin' ? 'Yönetici' : role === 'manager' ? 'Müdür' : role === 'staff' ? 'Personel' : 'İzleyici';
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar border-r border-sidebar-border/50 flex flex-col shadow-xl">
+    <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar/95 backdrop-blur-xl border-r border-sidebar-border/30 flex flex-col shadow-2xl">
+      {/* Subtle gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-sidebar-accent/5 via-transparent to-sidebar-accent/3 pointer-events-none" />
+
       {/* Logo */}
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-sidebar-border/50">
-        <div className="relative">
-          <img 
-            src={logoUrl} 
-            alt={`${companyName} Logo`} 
-            className="w-10 h-10 rounded-xl object-cover ring-2 ring-sidebar-accent/30" 
+      <div className="relative flex items-center gap-3 px-5 py-4 border-b border-sidebar-border/30">
+        <div className="relative group">
+          <div className="absolute -inset-1 rounded-xl bg-sidebar-primary/20 blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <img
+            src={logoUrl}
+            alt={`${companyName} Logo`}
+            className="relative w-10 h-10 rounded-xl object-cover ring-2 ring-sidebar-accent/40 transition-transform duration-200 group-hover:scale-105"
           />
         </div>
         <div className="min-w-0">
           <h1 className="font-bold text-base text-sidebar-foreground truncate">{companyName}</h1>
-          <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-wider">Stok Takip</p>
+          <p className="text-[10px] text-sidebar-foreground/40 uppercase tracking-wider">Stok Takip</p>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+      <nav className="relative flex-1 px-3 py-3 space-y-0.5 overflow-y-auto scrollbar-hide">
         {visibleMenuItems.map((item) => {
           const Icon = item.icon;
           const isActive = getIsActive(item.path);
@@ -127,14 +139,17 @@ export function Sidebar({ currentView, onViewChange, alertCount }: SidebarProps)
               to={item.path}
               onClick={() => onViewChange(item.id)}
               className={cn(
-                'sidebar-link w-full',
+                'sidebar-link w-full group',
                 isActive && 'sidebar-link-active'
               )}
             >
-              <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+              <Icon className={cn(
+                'w-[18px] h-[18px] flex-shrink-0 transition-transform duration-200',
+                isActive && 'scale-110'
+              )} />
               <span className="text-sm">{item.label}</span>
               {showBadge && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold shadow-sm">
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold shadow-sm animate-pulse">
                   {alertCount}
                 </span>
               )}
@@ -142,13 +157,21 @@ export function Sidebar({ currentView, onViewChange, alertCount }: SidebarProps)
           );
         })}
 
-        {/* Üretim Section */}
+        {/* Üretim Section — Collapsible */}
         <div className="pt-4 pb-1">
-          <div className="flex items-center gap-2 px-3 mb-1">
-            <Factory className="w-4 h-4 text-sidebar-foreground/50" />
-            <span className="text-[11px] font-semibold text-sidebar-foreground/50 uppercase tracking-wider">Üretim</span>
-          </div>
-          {productionItems.map((item) => {
+          <button
+            onClick={() => setProductionOpen(!productionOpen)}
+            className="flex items-center gap-2 px-3 mb-1.5 w-full group cursor-pointer"
+          >
+            <Factory className="w-4 h-4 text-sidebar-foreground/40 group-hover:text-sidebar-foreground/60 transition-colors" />
+            <span className="text-[11px] font-semibold text-sidebar-foreground/40 uppercase tracking-wider group-hover:text-sidebar-foreground/60 transition-colors">Üretim</span>
+            {productionOpen ? (
+              <ChevronDown className="w-3 h-3 text-sidebar-foreground/30 ml-auto" />
+            ) : (
+              <ChevronRight className="w-3 h-3 text-sidebar-foreground/30 ml-auto" />
+            )}
+          </button>
+          {productionOpen && productionItems.map((item) => {
             const Icon = item.icon;
             const isActive = getIsActive(item.path);
             return (
@@ -157,11 +180,14 @@ export function Sidebar({ currentView, onViewChange, alertCount }: SidebarProps)
                 to={item.path}
                 onClick={() => onViewChange(item.id)}
                 className={cn(
-                  'sidebar-link w-full',
+                  'sidebar-link w-full group',
                   isActive && 'sidebar-link-active'
                 )}
               >
-                <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+                <Icon className={cn(
+                  'w-[18px] h-[18px] flex-shrink-0 transition-transform duration-200',
+                  isActive && 'scale-110'
+                )} />
                 <span className="text-sm">{item.label}</span>
               </Link>
             );
@@ -169,11 +195,26 @@ export function Sidebar({ currentView, onViewChange, alertCount }: SidebarProps)
         </div>
       </nav>
 
-      {/* Footer */}
-      <div className="px-4 py-3 border-t border-sidebar-border/50">
-        <p className="text-[10px] text-sidebar-foreground/40 text-center">
-          © 2024 {companyName}
-        </p>
+      {/* User Footer */}
+      <div className="relative px-3 py-3 border-t border-sidebar-border/30">
+        <div className="flex items-center gap-3 px-2">
+          <div className="w-8 h-8 rounded-lg bg-sidebar-primary/15 flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-bold text-sidebar-primary">
+              {userName.charAt(0).toUpperCase()}
+            </span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-sidebar-foreground truncate">{userName}</p>
+            <p className="text-[10px] text-sidebar-foreground/40">{roleLabel}</p>
+          </div>
+          <button
+            onClick={signOut}
+            className="p-1.5 rounded-lg text-sidebar-foreground/30 hover:text-sidebar-foreground/70 hover:bg-sidebar-accent/50 transition-all duration-200"
+            title="Çıkış"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </aside>
   );

@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useShelves } from '@/hooks/useShelves';
 import { Badge } from '@/components/ui/badge';
 import { getProductStatus, getStatusLabel, getStatusColor } from '@/lib/productStatus';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface ProductListProps {
   products: Product[];
@@ -33,9 +34,9 @@ interface ProductListProps {
 type SortField = 'urunAdi' | 'urunKodu' | 'mevcutStok' | 'rafKonum';
 type SortOrder = 'asc' | 'desc';
 
-export function ProductList({ 
-  products, 
-  onEditProduct, 
+export function ProductList({
+  products,
+  onEditProduct,
   onDeleteProduct,
   onViewProduct,
   onStockAction,
@@ -152,13 +153,13 @@ export function ProductList({
 
   const handleExportProducts = async () => {
     let productsToExport = filteredProducts;
-    
+
     // Filter by selected shelves if any
     if (exportShelfIds.size > 0) {
       const selectedShelfNames = shelves
         .filter(s => exportShelfIds.has(s.id))
         .map(s => s.name);
-      productsToExport = productsToExport.filter(p => 
+      productsToExport = productsToExport.filter(p =>
         selectedShelfNames.includes(p.rafKonum)
       );
     }
@@ -353,8 +354,8 @@ export function ProductList({
                 const isSelected = selectedIds.has(product.id);
                 const category = (product as any).category;
                 return (
-                  <tr 
-                    key={product.id} 
+                  <tr
+                    key={product.id}
                     className={cn(
                       "border-b border-border last:border-0 animate-fade-in cursor-pointer transition-colors hover:bg-accent/50",
                       isSelected && "bg-primary/5"
@@ -472,11 +473,12 @@ export function ProductList({
       </div>
 
       {sortedProducts.length === 0 && (
-        <div className="stat-card text-center py-12">
-          <Package className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-foreground mb-2">Ürün bulunamadı</h3>
-          <p className="text-muted-foreground">Arama kriterlerinize uygun ürün yok.</p>
-        </div>
+        <EmptyState
+          variant={searchQuery ? 'search' : 'default'}
+          title={searchQuery ? 'Sonuç bulunamadı' : 'Henüz ürün yok'}
+          description={searchQuery ? `"${searchQuery}" aramasına uygun ürün bulunamadı.` : 'İlk ürününüzü ekleyerek başlayın.'}
+          actionLabel={searchQuery ? undefined : 'Ürün Ekle'}
+        />
       )}
 
       {/* Infinite scroll sentinel — auto-loads next page when visible */}
