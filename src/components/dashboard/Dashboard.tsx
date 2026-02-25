@@ -5,6 +5,8 @@ import { RecentMovements } from './RecentMovements';
 import { LowStockList } from './LowStockList';
 import { StockForecast } from './StockForecast';
 import { MovementHeatmap } from './MovementHeatmap';
+import { AnomalyDetector } from './AnomalyDetector';
+import { DemandForecastChart } from './DemandForecastChart';
 import { Product, StockMovement } from '@/types/stock';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -448,6 +450,12 @@ export function Dashboard({ products, movements, onViewProduct, serverStats }: D
 
       {/* Activity Feed */}
       <ActivityFeed />
+
+      {/* Intelligence Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <DemandForecastChart products={products} movements={movements} />
+        <AnomalyDetector products={products} movements={movements} />
+      </div>
 
       {/* Low Stock Alert */}
       {lowStockCount > 0 && (
