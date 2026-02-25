@@ -13,6 +13,7 @@ import { SearchControllerProvider, useSearchController, SearchDebugOverlay } fro
 import { PWAUpdateNotification } from "@/components/pwa/PWAUpdateNotification";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { ProductIntelligenceDrawer } from "@/components/products/ProductIntelligenceDrawer";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { useProducts } from "@/hooks/useProducts";
 import { Product } from "@/types/stock";
 import { QuoteCartProvider } from "@/modules/magaza/context/QuoteCartContext";
@@ -56,29 +57,29 @@ function PageLoader() {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return <PageLoader />;
   }
-  
+
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
-  
+
   return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return <PageLoader />;
   }
-  
+
   if (user) {
     return <Navigate to="/" replace />;
   }
-  
+
   return <>{children}</>;
 }
 
@@ -149,34 +150,34 @@ const AppRoutes = () => (
         <ProtectedRoute>
           <Index />
         </ProtectedRoute>
-       } />
-       {/* Admin magaza routes */}
-       <Route path="/admin/magaza" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-       <Route path="/admin/magaza/urunler" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-       <Route path="/admin/magaza/teklifler" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-       <Route path="/admin/magaza/kampanyalar" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-       <Route path="/admin/galeri" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-       <Route path="/uretim/baski" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-       <Route path="/uretim/kesim" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-       <Route path="/uretim/firinlar" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-       <Route path="/uretim/zimpara" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-       <Route path="/uretim/dekor" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-       <Route path="/uretim/tunel-firin" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-       <Route path="/uretim/paketleme" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-       <Route path="/uretim/dabo" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-       <Route path="/more" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-       {/* Public Magaza routes — shared layout */}
-       <Route element={<QuoteCartProvider><StorefrontLayout /></QuoteCartProvider>}>
-         <Route path="/magaza" element={<MagazaPage />} />
-         <Route path="/galeri" element={<GaleriPage />} />
-       </Route>
-       <Route path="/magaza/urun/:slug" element={<QuoteCartProvider><ProductDetailPage /></QuoteCartProvider>} />
-       <Route path="/magaza/sepet" element={<QuoteCartProvider><QuoteCartPage /></QuoteCartProvider>} />
-       <Route path="/galeri/urun/:slug" element={<QuoteCartProvider><GaleriDetailPage /></QuoteCartProvider>} />
-       <Route path="/import-inventory" element={<ProtectedRoute><ImportInventory /></ProtectedRoute>} />
-       <Route path="/import-barcode-catalog" element={<ProtectedRoute><ImportBarcodeCatalog /></ProtectedRoute>} />
-       <Route path="/install" element={<Install />} />
-       <Route path="/home" element={<LandingPage />} />
+      } />
+      {/* Admin magaza routes */}
+      <Route path="/admin/magaza" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+      <Route path="/admin/magaza/urunler" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+      <Route path="/admin/magaza/teklifler" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+      <Route path="/admin/magaza/kampanyalar" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+      <Route path="/admin/galeri" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+      <Route path="/uretim/baski" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+      <Route path="/uretim/kesim" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+      <Route path="/uretim/firinlar" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+      <Route path="/uretim/zimpara" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+      <Route path="/uretim/dekor" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+      <Route path="/uretim/tunel-firin" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+      <Route path="/uretim/paketleme" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+      <Route path="/uretim/dabo" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+      <Route path="/more" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+      {/* Public Magaza routes — shared layout */}
+      <Route element={<QuoteCartProvider><StorefrontLayout /></QuoteCartProvider>}>
+        <Route path="/magaza" element={<MagazaPage />} />
+        <Route path="/galeri" element={<GaleriPage />} />
+      </Route>
+      <Route path="/magaza/urun/:slug" element={<QuoteCartProvider><ProductDetailPage /></QuoteCartProvider>} />
+      <Route path="/magaza/sepet" element={<QuoteCartProvider><QuoteCartPage /></QuoteCartProvider>} />
+      <Route path="/galeri/urun/:slug" element={<QuoteCartProvider><GaleriDetailPage /></QuoteCartProvider>} />
+      <Route path="/import-inventory" element={<ProtectedRoute><ImportInventory /></ProtectedRoute>} />
+      <Route path="/import-barcode-catalog" element={<ProtectedRoute><ImportBarcodeCatalog /></ProtectedRoute>} />
+      <Route path="/install" element={<Install />} />
+      <Route path="/home" element={<LandingPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   </Suspense>
@@ -215,21 +216,23 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-             <PermissionsProvider>
+            <PermissionsProvider>
               <FeatureFlagsProvider>
                 <SystemSettingsProvider>
                   <WorkingContextProvider>
                     <SearchControllerProvider>
-                      <AppRoutes />
-                       <GlobalProductDrawer />
-                       <SearchDebugOverlay />
-                       <PWAUpdateNotification />
-                      <OfflineIndicator />
+                      <ErrorBoundary level="app">
+                        <AppRoutes />
+                        <GlobalProductDrawer />
+                        <SearchDebugOverlay />
+                        <PWAUpdateNotification />
+                        <OfflineIndicator />
+                      </ErrorBoundary>
                     </SearchControllerProvider>
                   </WorkingContextProvider>
                 </SystemSettingsProvider>
               </FeatureFlagsProvider>
-             </PermissionsProvider>
+            </PermissionsProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

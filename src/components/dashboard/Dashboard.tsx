@@ -3,6 +3,8 @@ import { Package, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, Users
 import { StatCard } from './StatCard';
 import { RecentMovements } from './RecentMovements';
 import { LowStockList } from './LowStockList';
+import { StockForecast } from './StockForecast';
+import { MovementHeatmap } from './MovementHeatmap';
 import { Product, StockMovement } from '@/types/stock';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,22 +25,22 @@ type ChartPeriod = 'today' | 'week' | 'month';
 
 export function Dashboard({ products, movements, onViewProduct, serverStats }: DashboardProps) {
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('week');
-  
+
   const totalProducts = serverStats?.total_products ?? products.length;
   const totalStock = serverStats?.total_stock ?? products.reduce((sum, p) => sum + p.mevcutStok, 0);
   const lowStockCount = serverStats?.low_stock_count ?? products.filter(p => p.mevcutStok < p.minStok).length;
   const lowStockProducts = products.filter(p => p.mevcutStok < p.minStok);
-  
+
   const totalIn = movements.filter(m => m.type === 'giris').reduce((sum, m) => sum + m.quantity, 0);
   const totalOut = movements.filter(m => m.type === 'cikis').reduce((sum, m) => sum + m.quantity, 0);
 
   // Today's movements
   const today = new Date().toISOString().split('T')[0];
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-  
+
   const todayMovements = movements.filter(m => m.date === today);
   const yesterdayMovements = movements.filter(m => m.date === yesterday);
-  
+
   const todayIn = todayMovements.filter(m => m.type === 'giris').reduce((sum, m) => sum + m.quantity, 0);
   const todayOut = todayMovements.filter(m => m.type === 'cikis').reduce((sum, m) => sum + m.quantity, 0);
   const yesterdayIn = yesterdayMovements.filter(m => m.type === 'giris').reduce((sum, m) => sum + m.quantity, 0);
@@ -100,18 +102,18 @@ export function Dashboard({ products, movements, onViewProduct, serverStats }: D
   const chartData = useMemo(() => {
     const now = new Date();
     const days: Record<string, { date: string; giris: number; cikis: number }> = {};
-    
+
     let daysCount = 7;
     if (chartPeriod === 'today') daysCount = 1;
     if (chartPeriod === 'month') daysCount = 30;
-    
+
     for (let i = daysCount - 1; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
       days[dateStr] = { date: dateStr, giris: 0, cikis: 0 };
     }
-    
+
     movements.forEach(m => {
       if (days[m.date]) {
         if (m.type === 'giris') {
@@ -121,14 +123,14 @@ export function Dashboard({ products, movements, onViewProduct, serverStats }: D
         }
       }
     });
-    
+
     return Object.values(days);
   }, [movements, chartPeriod]);
 
   // Most active products
   const mostActiveProducts = useMemo(() => {
     const activity: Record<string, { id: string; name: string; count: number; totalQty: number }> = {};
-    
+
     movements.forEach(m => {
       if (!activity[m.productId]) {
         activity[m.productId] = { id: m.productId, name: m.productName, count: 0, totalQty: 0 };
@@ -136,21 +138,21 @@ export function Dashboard({ products, movements, onViewProduct, serverStats }: D
       activity[m.productId].count++;
       activity[m.productId].totalQty += m.quantity;
     });
-    
+
     return Object.values(activity).sort((a, b) => b.count - a.count).slice(0, 5);
   }, [movements]);
 
   // User activity
   const userActivity = useMemo(() => {
     const activity: Record<string, { name: string; count: number }> = {};
-    
+
     movements.forEach(m => {
       if (!activity[m.handledBy]) {
         activity[m.handledBy] = { name: m.handledBy, count: 0 };
       }
       activity[m.handledBy].count++;
     });
-    
+
     return Object.values(activity).sort((a, b) => b.count - a.count).slice(0, 5);
   }, [movements]);
 
@@ -181,7 +183,7 @@ export function Dashboard({ products, movements, onViewProduct, serverStats }: D
       </div>
 
       {/* Stats Grid - Responsive: 2 cols on mobile, 3 on tablet, 6 on desktop */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 stagger-children">
         <StatCard
           title="Toplam Ürün"
           value={totalProducts}
@@ -308,8 +310,8 @@ export function Dashboard({ products, movements, onViewProduct, serverStats }: D
                 onClick={() => setChartPeriod(period)}
                 className={cn(
                   'px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200',
-                  chartPeriod === period 
-                    ? 'bg-background text-foreground shadow-sm' 
+                  chartPeriod === period
+                    ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
@@ -323,13 +325,13 @@ export function Dashboard({ products, movements, onViewProduct, serverStats }: D
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" vertical={false} />
-                <XAxis 
-                  dataKey="date" 
+                <XAxis
+                  dataKey="date"
                   tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                   tickFormatter={(v) => {
                     if (chartPeriod === 'today') return 'Bugün';
-                    return new Date(v).toLocaleDateString('tr-TR', { 
-                      weekday: chartPeriod === 'week' ? 'short' : undefined, 
+                    return new Date(v).toLocaleDateString('tr-TR', {
+                      weekday: chartPeriod === 'week' ? 'short' : undefined,
                       day: 'numeric',
                       month: chartPeriod === 'month' ? 'short' : undefined
                     });
@@ -337,15 +339,15 @@ export function Dashboard({ products, movements, onViewProduct, serverStats }: D
                   axisLine={false}
                   tickLine={false}
                 />
-                <YAxis 
-                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} 
+                <YAxis
+                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                   axisLine={false}
                   tickLine={false}
                 />
-                <Tooltip 
+                <Tooltip
                   labelFormatter={(v) => new Date(v).toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' })}
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))', 
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
                     border: '1px solid hsl(var(--border))',
                     borderRadius: '10px',
                     boxShadow: '0 4px 12px -2px rgb(0 0 0 / 0.1)'
@@ -359,6 +361,12 @@ export function Dashboard({ products, movements, onViewProduct, serverStats }: D
           </div>
         </CardContent>
       </Card>
+
+      {/* Stock Intelligence Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <StockForecast products={products} movements={movements} onViewProduct={onViewProduct} />
+        <MovementHeatmap movements={movements} />
+      </div>
 
       {/* Three Column Layout - Reduced gap */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -375,17 +383,17 @@ export function Dashboard({ products, movements, onViewProduct, serverStats }: D
           <CardContent className="pt-0">
             <div className="space-y-2">
               {mostActiveProducts.map((p, i) => (
-                <div 
-                  key={p.id} 
+                <div
+                  key={p.id}
                   className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors group"
                   onClick={() => onViewProduct(p.id)}
                 >
                   <div className="flex items-center gap-2.5">
                     <div className={cn(
                       'w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold transition-transform group-hover:scale-105',
-                      i === 0 ? 'bg-primary text-primary-foreground' : 
-                      i === 1 ? 'bg-secondary text-secondary-foreground' : 
-                      'bg-muted text-muted-foreground'
+                      i === 0 ? 'bg-primary text-primary-foreground' :
+                        i === 1 ? 'bg-secondary text-secondary-foreground' :
+                          'bg-muted text-muted-foreground'
                     )}>
                       {i + 1}
                     </div>

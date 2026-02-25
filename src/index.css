@@ -160,12 +160,15 @@
   }
 
   /* iOS input zoom fix */
-  input, select, textarea {
+  input,
+  select,
+  textarea {
     font-size: 16px !important;
   }
 }
 
 @layer components {
+
   /* Safe area utilities */
   .safe-area-top {
     padding-top: env(safe-area-inset-top);
@@ -269,6 +272,7 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
@@ -285,7 +289,9 @@
   }
 
   /* Prevent text selection on interactive elements */
-  button, [role="button"], [role="tab"] {
+  button,
+  [role="button"],
+  [role="tab"] {
     -webkit-user-select: none;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
@@ -299,16 +305,21 @@
     }
 
     /* Allow text selection in inputs and textareas */
-    input, textarea, [contenteditable="true"] {
+    input,
+    textarea,
+    [contenteditable="true"] {
       -webkit-user-select: text;
       user-select: text;
     }
 
     /* Reduce heavy shadows on mobile for 60fps scrolling */
-    .stat-card, .stat-card-enhanced {
+    .stat-card,
+    .stat-card-enhanced {
       box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04) !important;
     }
-    .stat-card:hover, .stat-card-enhanced:hover {
+
+    .stat-card:hover,
+    .stat-card-enhanced:hover {
       transform: none !important;
       box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04) !important;
     }
@@ -318,12 +329,101 @@
   .bottom-nav-safe {
     padding-bottom: calc(4rem + env(safe-area-inset-bottom));
   }
+
+  /* Staggered child animation */
+  .stagger-children>* {
+    opacity: 0;
+    animation: slideUp 0.4s ease-out forwards;
+  }
+
+  .stagger-children>*:nth-child(1) {
+    animation-delay: 0ms;
+  }
+
+  .stagger-children>*:nth-child(2) {
+    animation-delay: 60ms;
+  }
+
+  .stagger-children>*:nth-child(3) {
+    animation-delay: 120ms;
+  }
+
+  .stagger-children>*:nth-child(4) {
+    animation-delay: 180ms;
+  }
+
+  .stagger-children>*:nth-child(5) {
+    animation-delay: 240ms;
+  }
+
+  .stagger-children>*:nth-child(6) {
+    animation-delay: 300ms;
+  }
+
+  .stagger-children>*:nth-child(7) {
+    animation-delay: 360ms;
+  }
+
+  .stagger-children>*:nth-child(8) {
+    animation-delay: 420ms;
+  }
+
+  /* Glassmorphism */
+  .glass {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .glass-light {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  .dark .glass-light {
+    background: rgba(30, 35, 55, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* Shimmer effect */
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.08) 50%,
+        transparent 100%);
+    animation: shimmerSlide 2.5s ease-in-out infinite;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Floating animation */
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -334,6 +434,7 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -345,6 +446,7 @@
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -356,10 +458,12 @@
     transform: scale(0.8);
     opacity: 0.8;
   }
+
   50% {
     transform: scale(1.2);
     opacity: 0;
   }
+
   100% {
     transform: scale(0.8);
     opacity: 0;
@@ -373,4 +477,40 @@
   border-radius: 50%;
   background: hsl(var(--destructive) / 0.3);
   animation: pulse-ring 2s ease-out infinite;
+}
+
+@keyframes shimmerSlide {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
 }

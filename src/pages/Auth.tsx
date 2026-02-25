@@ -103,32 +103,47 @@ export default function Auth() {
     <div className="min-h-screen bg-background flex">
       {/* Brand Panel */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-primary">
-        {/* Animated pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `radial-gradient(circle at 25% 25%, hsl(var(--primary-foreground)) 1px, transparent 1px),
-                              radial-gradient(circle at 75% 75%, hsl(var(--primary-foreground)) 1px, transparent 1px)`,
-            backgroundSize: '40px 40px',
-          }} />
+        {/* Animated floating particles */}
+        <div className="absolute inset-0">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute rounded-full bg-primary-foreground/10 animate-float"
+              style={{
+                width: `${Math.random() * 6 + 2}px`,
+                height: `${Math.random() * 6 + 2}px`,
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 6}s`,
+                animationDuration: `${Math.random() * 4 + 4}s`,
+              }}
+            />
+          ))}
         </div>
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-primary/80" />
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-primary/70" />
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 opacity-[0.04]" style={{
+          backgroundImage: 'linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
+        }} />
         <div className="relative z-10 flex flex-col justify-center items-center w-full px-12 text-primary-foreground">
-          <div className="w-20 h-20 rounded-2xl bg-primary-foreground/15 backdrop-blur-sm flex items-center justify-center mb-8 shadow-2xl">
+          <div className="w-20 h-20 rounded-2xl glass flex items-center justify-center mb-8 shadow-2xl">
             <Package className="w-10 h-10" />
           </div>
           <h1 className="text-4xl font-bold mb-3 tracking-tight">Stok Takip</h1>
-          <p className="text-lg text-primary-foreground/80 text-center max-w-sm leading-relaxed">
+          <p className="text-lg text-primary-foreground/70 text-center max-w-sm leading-relaxed">
             Profesyonel envanter yönetim sistemi ile stoklarınızı gerçek zamanlı takip edin
           </p>
-          <div className="mt-12 grid grid-cols-3 gap-6 text-center">
+          <div className="mt-12 grid grid-cols-3 gap-4 stagger-children">
             {[
               { label: 'Gerçek Zamanlı', desc: 'Anlık stok takibi' },
               { label: 'Barkod Desteği', desc: 'Hızlı tarama' },
               { label: 'Raporlama', desc: 'Detaylı analiz' },
             ].map(f => (
-              <div key={f.label} className="bg-primary-foreground/10 backdrop-blur-sm rounded-xl p-4">
+              <div key={f.label} className="glass rounded-xl p-4 text-center hover:bg-white/10 transition-colors duration-300">
                 <p className="font-semibold text-sm">{f.label}</p>
-                <p className="text-xs text-primary-foreground/60 mt-1">{f.desc}</p>
+                <p className="text-xs text-primary-foreground/50 mt-1">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -146,7 +161,7 @@ export default function Auth() {
             <h1 className="text-2xl font-bold text-foreground">Stok Takip Sistemi</h1>
           </div>
 
-          <Card className="border-0 shadow-none lg:border lg:shadow-lg">
+          <Card className="border-0 shadow-none lg:border lg:shadow-xl lg:glass-light lg:rounded-2xl">
             <CardContent className="p-0 lg:p-8">
               {view === 'forgot' && (
                 <button onClick={() => setView('login')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">

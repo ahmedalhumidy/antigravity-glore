@@ -1,6 +1,7 @@
 import { LucideIcon, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Area, AreaChart, ResponsiveContainer } from 'recharts';
+import { AnimatedCounter } from './AnimatedCounter';
 
 interface StatCardProps {
   title: string;
@@ -47,11 +48,11 @@ const sparklineColors = {
   destructive: 'rgba(255,255,255,0.8)',
 };
 
-export function StatCard({ 
-  title, 
-  value, 
-  icon: Icon, 
-  trend, 
+export function StatCard({
+  title,
+  value,
+  icon: Icon,
+  trend,
   comparison,
   sparklineData,
   variant = 'default',
@@ -61,8 +62,8 @@ export function StatCard({
 
   const comparisonData = comparison ? (() => {
     const diff = comparison.current - comparison.previous;
-    const percentage = comparison.previous > 0 
-      ? Math.round((diff / comparison.previous) * 100) 
+    const percentage = comparison.previous > 0
+      ? Math.round((diff / comparison.previous) * 100)
       : diff > 0 ? 100 : 0;
     return { diff, percentage, isPositive: diff >= 0 };
   })() : null;
@@ -107,9 +108,13 @@ export function StatCard({
             'text-lg md:text-2xl lg:text-3xl font-bold tracking-tight tabular-nums',
             isColored ? 'text-white' : 'text-foreground'
           )}>
-            {value}
+            {typeof value === 'number' ? (
+              <AnimatedCounter value={value} className="tabular-nums" />
+            ) : (
+              value
+            )}
           </p>
-          
+
           {trend && (
             <p className={cn(
               'text-xs flex items-center gap-1',
@@ -138,8 +143,8 @@ export function StatCard({
             )}>
               <span className={cn(
                 'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold',
-                comparisonData.isPositive 
-                  ? 'bg-success/10 text-success' 
+                comparisonData.isPositive
+                  ? 'bg-success/10 text-success'
                   : 'bg-destructive/10 text-destructive',
                 isColored && 'bg-white/20 text-white'
               )}>

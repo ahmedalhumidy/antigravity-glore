@@ -61,6 +61,29 @@ export function useProducts() {
     fetchProducts();
   }, [fetchProducts]);
 
+  // Realtime subscription for live updates across sessions
+  useEffect(() => {
+    const channel = supabase
+      .channel('products-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'products',
+        },
+        () => {
+          // Debounce: re-fetch products when any change happens
+          fetchProducts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchProducts]);
+
   const loadMore = useCallback(async () => {
     if (loadingMore) return;
     try {
