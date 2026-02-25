@@ -32,6 +32,8 @@ const shortcutGroups: ShortcutGroup[] = [
             { keys: ['N'], label: 'Yeni ürün ekle' },
             { keys: ['S'], label: 'Barkod tara' },
             { keys: ['T'], label: 'Raf transferi' },
+            { keys: ['I'], label: 'Toplu içe aktarma' },
+            { keys: ['A'], label: 'Envanter sayımı' },
         ],
     },
 ];

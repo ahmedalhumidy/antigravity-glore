@@ -7,6 +7,7 @@ import { StockForecast } from './StockForecast';
 import { MovementHeatmap } from './MovementHeatmap';
 import { AnomalyDetector } from './AnomalyDetector';
 import { DemandForecastChart } from './DemandForecastChart';
+import { ReorderSuggestions } from './ReorderSuggestions';
 import { Product, StockMovement } from '@/types/stock';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -456,6 +457,9 @@ export function Dashboard({ products, movements, onViewProduct, serverStats }: D
         <DemandForecastChart products={products} movements={movements} />
         <AnomalyDetector products={products} movements={movements} />
       </div>
+
+      {/* Reorder Suggestions */}
+      <ReorderSuggestions products={products} movements={movements} onViewProduct={onViewProduct} />
 
       {/* Low Stock Alert */}
       {lowStockCount > 0 && (

@@ -30,6 +30,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
+import { BulkImportModal } from "@/components/products/BulkImportModal";
+import { InventoryAuditMode } from "@/components/products/InventoryAuditMode";
 
 // Lazy load heavy pages
 const UserManagement = lazy(() =>
@@ -122,6 +124,8 @@ const Index = () => {
   const [scanModalOpen, setScanModalOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [auditModeOpen, setAuditModeOpen] = useState(false);
 
   const lowStockCount = products.filter((p) => p.mevcutStok < p.minStok).length;
 
@@ -263,6 +267,17 @@ const Index = () => {
     onScan: () => setScanModalOpen(true),
     onTransfer: () => setShowTransfer(true),
   });
+
+  // Audit mode overlay
+  if (auditModeOpen) {
+    return (
+      <InventoryAuditMode
+        products={products}
+        onComplete={() => { setAuditModeOpen(false); refreshProducts(); }}
+        onClose={() => setAuditModeOpen(false)}
+      />
+    );
+  }
 
   return (
     <GlobalScannerProvider>
@@ -493,6 +508,13 @@ const Index = () => {
           onStockUpdated={refreshProducts}
         />
         <QuickCreateProductSheet />
+
+        {/* Bulk Import Modal */}
+        <BulkImportModal
+          open={bulkImportOpen}
+          onClose={() => setBulkImportOpen(false)}
+          onComplete={() => refreshProducts()}
+        />
       </div>
     </GlobalScannerProvider>
   );

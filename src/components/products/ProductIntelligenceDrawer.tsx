@@ -10,9 +10,10 @@ import { ProductActivityTimeline } from './ProductActivityTimeline';
 import { ProductEditTab } from './ProductEditTab';
 import { printBarcodeLabels } from './BarcodeLabel';
 import { TransferShelfModal } from '@/components/movements/TransferShelfModal';
-import { ArrowUpRight, ArrowDownRight, Printer, X, BarChart3, Clock, Eye, Activity, RefreshCw, Pencil, ChevronLeft } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Printer, X, BarChart3, Clock, Eye, Activity, RefreshCw, Pencil, ChevronLeft, QrCode } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subDays } from 'date-fns';
+import { QRCodeGenerator } from './QRCodeGenerator';
 
 interface ProductIntelligenceDrawerProps {
   product: Product | null;
@@ -182,6 +183,10 @@ export function ProductIntelligenceDrawer({ product, open, onClose, onSave, onDe
                     <Pencil className="w-4 h-4 sm:mr-1.5" />
                     <span className="hidden sm:inline">Düzenle</span>
                   </TabsTrigger>
+                  <TabsTrigger value="qr" className="text-xs min-h-[44px] data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none rounded-none px-3 py-2.5 bg-transparent">
+                    <QrCode className="w-4 h-4 sm:mr-1.5" />
+                    <span className="hidden sm:inline">QR Kod</span>
+                  </TabsTrigger>
                 </TabsList>
               </div>
             </div>
@@ -219,6 +224,12 @@ export function ProductIntelligenceDrawer({ product, open, onClose, onSave, onDe
                     }}
                   />
                 )}
+              </TabsContent>
+
+              <TabsContent value="qr" className="m-0 mt-0">
+                <div className="flex flex-col items-center py-6">
+                  <QRCodeGenerator product={product} size={200} />
+                </div>
               </TabsContent>
             </div>
           </Tabs>
