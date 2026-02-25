@@ -18,6 +18,7 @@ import { useShelves } from '@/hooks/useShelves';
 import { Badge } from '@/components/ui/badge';
 import { getProductStatus, getStatusLabel, getStatusColor } from '@/lib/productStatus';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { SavedSearchPresets } from './SavedSearchPresets';
 
 interface ProductListProps {
   products: Product[];
@@ -239,6 +240,20 @@ export function ProductList({
           onSelectCategory={setSelectedCategory}
         />
       )}
+
+      {/* Saved Search Presets */}
+      <SavedSearchPresets
+        currentQuery={searchQuery}
+        currentCategory={selectedCategory}
+        currentSortField={sortField}
+        currentSortOrder={sortOrder}
+        onApplyPreset={(preset) => {
+          setSearchQuery(preset.query || '');
+          setSelectedCategory(preset.category || null);
+          if (preset.sortField) setSortField(preset.sortField as SortField);
+          if (preset.sortOrder) setSortOrder(preset.sortOrder as SortOrder);
+        }}
+      />
 
       {/* Bulk Actions */}
       <BulkActions

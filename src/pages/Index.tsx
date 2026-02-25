@@ -7,6 +7,7 @@ import { CopilotActionSheet } from "@/modules/globalScanner/CopilotActionSheet";
 import { QuickCreateProductSheet } from "@/modules/globalScanner/QuickCreateProductSheet";
 import { TransferShelfModal } from "@/components/movements/TransferShelfModal";
 import { Dashboard } from "@/components/dashboard/Dashboard";
+import { Upload, ClipboardCheck } from "lucide-react";
 import { ProductList } from "@/components/products/ProductList";
 import { ProductModal } from "@/components/products/ProductModal";
 import { StockActionModal } from "@/components/products/StockActionModal";
@@ -251,6 +252,8 @@ const Index = () => {
     onNewProduct: handleAddProduct,
     onScan: () => setScanModalOpen(true),
     onTransfer: () => setShowTransfer(true),
+    onBulkImport: () => setBulkImportOpen(true),
+    onAuditMode: () => setAuditModeOpen(true),
   });
 
   // Only block on products loading - movements load independently
@@ -330,17 +333,42 @@ const Index = () => {
             )}
 
             {currentView === "products" && (
-              <ProductList
-                products={products}
-                onEditProduct={handleEditProduct}
-                onDeleteProduct={handleDeleteProduct}
-                onViewProduct={handleViewProduct}
-                onStockAction={handleStockAction}
-                totalCount={totalCount}
-                hasMore={hasMore}
-                loadingMore={loadingMore}
-                onLoadMore={loadMore}
-              />
+              <>
+                {/* Products Actions Bar */}
+                <div className="flex items-center justify-end gap-2 mb-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBulkImportOpen(true)}
+                    className="gap-1.5 text-xs"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    Toplu İçe Aktar
+                    <kbd className="ml-1 hidden sm:inline-flex px-1 py-0.5 rounded bg-muted text-[9px] font-mono">I</kbd>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAuditModeOpen(true)}
+                    className="gap-1.5 text-xs"
+                  >
+                    <ClipboardCheck className="w-3.5 h-3.5" />
+                    Envanter Sayım
+                    <kbd className="ml-1 hidden sm:inline-flex px-1 py-0.5 rounded bg-muted text-[9px] font-mono">A</kbd>
+                  </Button>
+                </div>
+                <ProductList
+                  products={products}
+                  onEditProduct={handleEditProduct}
+                  onDeleteProduct={handleDeleteProduct}
+                  onViewProduct={handleViewProduct}
+                  onStockAction={handleStockAction}
+                  totalCount={totalCount}
+                  hasMore={hasMore}
+                  loadingMore={loadingMore}
+                  onLoadMore={loadMore}
+                />
+              </>
             )}
 
             {currentView === "movements" && (

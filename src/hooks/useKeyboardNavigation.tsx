@@ -17,10 +17,14 @@ export function useKeyboardNavigation({
     onNewProduct,
     onScan,
     onTransfer,
+    onBulkImport,
+    onAuditMode,
 }: {
     onNewProduct?: () => void;
     onScan?: () => void;
     onTransfer?: () => void;
+    onBulkImport?: () => void;
+    onAuditMode?: () => void;
 } = {}) {
     const navigate = useNavigate();
     const pendingKey = useRef<string | null>(null);
@@ -33,7 +37,10 @@ export function useKeyboardNavigation({
             if (
                 target.tagName === 'INPUT' ||
                 target.tagName === 'TEXTAREA' ||
-                target.isContentEditable
+                target.tagName === 'SELECT' ||
+                target.isContentEditable ||
+                target.closest('[role="combobox"]') ||
+                target.closest('[role="dialog"]')
             ) {
                 return;
             }
@@ -97,6 +104,14 @@ export function useKeyboardNavigation({
                     e.preventDefault();
                     onTransfer?.();
                     break;
+                case 'i':
+                    e.preventDefault();
+                    onBulkImport?.();
+                    break;
+                case 'a':
+                    e.preventDefault();
+                    onAuditMode?.();
+                    break;
             }
         };
 
@@ -105,5 +120,5 @@ export function useKeyboardNavigation({
             window.removeEventListener('keydown', handler);
             if (pendingTimer.current) clearTimeout(pendingTimer.current);
         };
-    }, [navigate, onNewProduct, onScan, onTransfer]);
+    }, [navigate, onNewProduct, onScan, onTransfer, onBulkImport, onAuditMode]);
 }
